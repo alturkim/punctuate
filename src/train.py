@@ -11,8 +11,8 @@ import pprint
 
 from models.baseModel import BaseModel
 from models.baseModel import criterion
-from utils import save_checkpoint, RunningAverage
-from src import config
+from utils import save_checkpoint, RunningAverage, config
+
 from prepare_dataset import id2label, label2id, preprocess, get_raw_datasets, data_collator
 
 tb_summary_path = 'runs/punct_pred_experiment_1'

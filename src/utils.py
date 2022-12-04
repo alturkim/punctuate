@@ -55,3 +55,6 @@ def save_checkpoint(state: dict, is_best: bool, checkpoint_dir: str):
     if is_best:
         torch.save(state, os.path.join(checkpoint_dir, 'best_checkpoint.pt'))
 
+
+arg_dict = json.load(open("../config/config.json"))
+config = Config.from_dict(arg_dict)

@@ -7,7 +7,7 @@ import collections
 import re
 import string
 
-from . import config
+from utils import config
 
 tokenizer = AutoTokenizer.from_pretrained(config.transformers_checkpoint)
 data_collator = DataCollatorForTokenClassification(tokenizer=tokenizer)
