@@ -9,8 +9,8 @@ from transformers import get_scheduler
 from tqdm.auto import tqdm
 import pprint
 
-from src.models.baseModel import BaseModel
-from src.models.baseModel import criterion
+from models.baseModel import BaseModel
+from models.baseModel import criterion
 from utils import save_checkpoint, RunningAverage
 from . import config
 from prepare_dataset import id2label, label2id, preprocess, get_raw_datasets, data_collator
