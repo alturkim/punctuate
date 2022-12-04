@@ -1,6 +1,8 @@
 import torch
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 import os
+import typing
+import json
 
 class RunningAverage:
     def __init__(self):
@@ -24,12 +26,19 @@ class Config:
     transformers_checkpoint: str
     checkpoint_dir: str
     marks: str
-    dropout_rate: float
     batch_size: int
     num_train_epochs: int
     chunk_size: int
     tb_summary_path: str
     log_freq: int
+
+    @classmethod
+    def from_dict(cls: typing.Type["Config"], arg_dict: dict):
+        field_set = {f.name for f in fields(cls) if f.init}
+        filtered_arg_dict = {k : v for k, v in arg_dict.items() if k in field_set}
+        return cls(**filtered_arg_dict)
+ 
+
     
 
 def save_checkpoint(state: dict, is_best: bool, checkpoint_dir: str):
@@ -45,3 +54,4 @@ def save_checkpoint(state: dict, is_best: bool, checkpoint_dir: str):
     torch.save(state, os.path.join(checkpoint_dir, 'checkpoint.pt'))
     if is_best:
         torch.save(state, os.path.join(checkpoint_dir, 'best_checkpoint.pt'))
+

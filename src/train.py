@@ -7,18 +7,21 @@ import evaluate
 from torch.optim import AdamW
 from transformers import get_scheduler
 from tqdm.auto import tqdm
+import pprint
 
-from models.BaseModel import criterion
+from src.models.baseModel import BaseModel
+from src.models.baseModel import criterion
+from utils import save_checkpoint, RunningAverage
+from . import config
+from prepare_dataset import id2label, label2id, preprocess, get_raw_datasets, data_collator
 
 tb_summary_path = 'runs/punct_pred_experiment_1'
 writer = SummaryWriter(tb_summary_path)
 
-batch_size = 16
-num_train_epochs = 3
-lr=2e-5
-num_of_labels = len(marks) + 1
+
+num_of_labels = len(config.marks) + 1
 device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-log_freq = 1
+
 
 metrics = [evaluate.load(m) for m in ["precision", "recall", "f1"]]
 
@@ -49,7 +52,7 @@ def train():
     progress_bar = tqdm(range(num_training_steps))
     best_val_loss = float('inf')
 
-    for epoch in range(num_train_epochs):
+    for epoch in range(config.num_train_epochs):
         # Training
         model.train()
         for i, batch in enumerate(train_dataloader):
@@ -63,11 +66,11 @@ def train():
             optimizer.zero_grad()
             progress_bar.update(1)
             running_loss += loss.item()
-            if i % log_freq == log_freq-1:    # every log_freq mini-batches...
+            if i % config.log_freq == config.log_freq-1:    # every log_freq mini-batches...
             # if True:
                 # log the running loss
                 writer.add_scalar("training loss",
-                                running_loss / log_freq,
+                                running_loss / config.log_freq,
                                 epoch * len(train_dataloader) + i)
                 running_loss = 0.0
 
@@ -82,7 +85,7 @@ def train():
                  'loss': criterion,
                  }
 
-        save_checkpoint(state, is_best, checkpoint_dir)
+        save_checkpoint(state, is_best, config.checkpoint_dir)
         results = compute_metrics()
         for mark in results["f1"].keys():
             writer.add_scalar("F1 for "+mark, results["f1"][mark], epoch)
@@ -118,22 +121,22 @@ if __name__ == "__main__":
         punc_datasets["train"],
         shuffle=True,
         collate_fn=data_collator,
-        batch_size=batch_size,
+        batch_size=config.batch_size,
     )
     eval_dataloader = DataLoader(
-        punc_datasets["val"], collate_fn=data_collator, batch_size=batch_size
+        punc_datasets["val"], collate_fn=data_collator, batch_size=config.batch_size
     )
 
-    model = BaseModel(model_checkpoint, num_of_labels)
+    model = BaseModel(config.transformers_checkpoint, num_of_labels)
 
     # load best checkpoint
     # model.load_state_dict(torch.load(os.path.join(checkpoint_dir, "best_checkpoint.pt"))['model_state_dict'])
     model.to(device)
  
-    optimizer = AdamW(model.parameters(), lr=lr)
+    optimizer = AdamW(model.parameters(), lr=config.lr)
 
     num_update_steps_per_epoch = len(train_dataloader)
-    num_training_steps = num_train_epochs * num_update_steps_per_epoch
+    num_training_steps = config.num_train_epochs * num_update_steps_per_epoch
     lr_scheduler = get_scheduler(
         "linear",
         optimizer=optimizer,

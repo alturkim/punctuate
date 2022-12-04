@@ -7,12 +7,14 @@ import collections
 import re
 import string
 
-tokenizer = AutoTokenizer.from_pretrained(model_checkpoint)
+from . import config
+
+tokenizer = AutoTokenizer.from_pretrained(config.transformers_checkpoint)
 data_collator = DataCollatorForTokenClassification(tokenizer=tokenizer)
-id2label = {i: label for i, label in enumerate(marks+"O")}
+id2label = {i: label for i, label in enumerate(config.marks+"O")}
 label2id = {v: k for k, v in id2label.items()}
 # extra marks: marks that are not considered for prediction
-extra_marks = string.punctuation.translate(str.maketrans("", "", marks))
+extra_marks = string.punctuation.translate(str.maketrans("", "", config.marks))
 
 def get_raw_datasets() -> arrow_dataset.Dataset:
     # columns: book, text where book is the title and text is the content as one string
@@ -87,8 +89,8 @@ def align_labels_with_tokens(labels:List[str], word_ids: List[Union[int, str]]) 
 
 def tokenize_and_align_labels(examples: arrow_dataset.Dataset): # returns transformers.tokenization_utils_base.BatchEncoding (a dict subclass)
     examples["text"] = remove_punc(remove_diacritics(examples["text"]), extra_marks)
-    all_labels = create_labels(examples["text"], marks)
-    tokenized_inputs = tokenizer(remove_punc(examples["text"], marks))
+    all_labels = create_labels(examples["text"], config.marks)
+    tokenized_inputs = tokenizer(remove_punc(examples["text"], config.marks))
     new_labels = []
     for i, labels in enumerate(all_labels):
         word_ids = tokenized_inputs.word_ids(i)
@@ -108,10 +110,10 @@ def group_and_split_texts(examples: arrow_dataset.Batch) -> dict:
     # Compute length of concatenated texts
     total_length = len(concatenated_examples[list(examples.keys())[0]])
     # drop the last chunk if it's smaller than chunk_size
-    total_length = (total_length // chunk_size) * chunk_size
+    total_length = (total_length // config.chunk_size) * config.chunk_size
     # Split by chunks of max_len
     result = {
-        k: [t[i : i + chunk_size] for i in range(0, total_length, chunk_size)]
+        k: [t[i : i + config.chunk_size] for i in range(0, total_length, config.chunk_size)]
         for k, t in concatenated_examples.items()
     }
     return result
@@ -144,5 +146,3 @@ def preprocess(dataset: arrow_dataset.Dataset) -> arrow_dataset.Dataset:
     result = result.map(group_and_split_texts, batched=True)
     result = result.remove_columns("word_ids")
     return result
-
-
