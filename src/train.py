@@ -8,6 +8,8 @@ from torch.optim import AdamW
 from transformers import get_scheduler
 from tqdm.auto import tqdm
 
+from models.BaseModel import criterion
+
 tb_summary_path = 'runs/punct_pred_experiment_1'
 writer = SummaryWriter(tb_summary_path)
 
@@ -17,7 +19,7 @@ lr=2e-5
 num_of_labels = len(marks) + 1
 device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 log_freq = 1
-criterion = nn.CrossEntropyLoss()
+
 metrics = [evaluate.load(m) for m in ["precision", "recall", "f1"]]
 
 def compute_metrics()-> dict:

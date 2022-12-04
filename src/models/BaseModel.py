@@ -1,6 +1,11 @@
+"""
+Base Line model
+"""
 from torch import nn
 from transformers import AutoModel
 from transformers.modeling_outputs import TokenClassifierOutput
+
+criterion = nn.CrossEntropyLoss()
 
 class BaseModel(nn.Module):
     def __init__(self, checkpoint, num_labels):
