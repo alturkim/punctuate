@@ -89,7 +89,7 @@ def train():
         results = compute_metrics()
         for mark in results["f1"].keys():
             writer.add_scalar("F1 for "+mark, results["f1"][mark], epoch)
-    print("results", results)
+    pprint(results)
 
 
 def evaluation():

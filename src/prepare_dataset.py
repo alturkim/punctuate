@@ -1,4 +1,4 @@
-from datasets import load_dataset, concatenate_datasets, arrow_dataset
+from datasets import load_dataset, concatenate_datasets, arrow_dataset, Dataset
 from transformers import AutoTokenizer, DataCollatorForTokenClassification
 from pprint import pprint
 import numpy as np
@@ -15,13 +15,35 @@ id2label = {i: label for i, label in enumerate(config.marks+"O")}
 label2id = {v: k for k, v in id2label.items()}
 # extra marks: marks that are not considered for prediction
 extra_marks = string.punctuation.translate(str.maketrans("", "", config.marks))
+inspection_list = ["'", ',', ';', '«', '»', '“', '﴾', '﴿']
+replacement_list = ["", '،', '؛', '"', '"', '"', '"', '"']
+mapping_marks = {k:v for k, v in zip(inspection_list, replacement_list)}
 
 def get_raw_datasets() -> arrow_dataset.Dataset:
-    # columns: book, text where book is the title and text is the content as one string
-    raw_datasets = load_dataset("tashkeela", split="train") 
-    return raw_datasets
+    # columns: book, text where book is the title and text is the content as a list of one string 
+    raw_datasets = load_dataset("tashkeela", split="train")
     
+    sub_datasets = []
+    for d in raw_datasets:
+        sub_datasets.append(split_text(d))
+    raw_datasets = concatenate_datasets(sub_datasets)
+    # after spliting: columns: book, text where book is the title and text is the part of the content as a list of one string 
+    # each book was one element in the dataset, now each book is represented by multiple elements, each one with same book value
+    # but text value will be a list of one string representing part of the content
+    return raw_datasets
+
+def split_text(examples: arrow_dataset.Dataset):
+    result = {"book": [], "text": []}
+    words =  examples["text"].split()
+    sentences = [" ".join(words[i : i + config.text_chunk_size]) for i in range(0, len(words), config.text_chunk_size)]
+    for sent in sentences:
+        result["book"].append(examples["book"])
+        result["text"].append(sent)
+    examples = Dataset.from_dict(result)
+    return examples
+
 def create_labels(examples: List[str], marks: str) -> List[List[str]]:
+    # print("create_labels")
     """
     create labels at the word level (words are whatever separated by space), 
     where each word will have a label indicating the punctuation mark that 
@@ -30,18 +52,19 @@ def create_labels(examples: List[str], marks: str) -> List[List[str]]:
     labels = []
     for ex in examples:
         temp = []
-        words = ex.split()
+        words = ex.strip().split()
         for idx, w in enumerate(words):
+            w = w.strip()
             if w in marks:
                 continue
             last_char = w[-1]
             if last_char in marks:
+                # punc mark is attached to the end of the current word
                 temp.append(label2id[last_char])
             elif idx < len(words) -1:
-                if words[idx+1] in marks:
-                    temp.append(label2id[words[idx+1]])
-                elif words[idx+1][0] in marks:
-                    # punct is attached to the next word
+                # not the last word in this ex
+                if words[idx+1][0] in marks:
+                    # punct is attached to the next word or is the next word (isolated punc)
                     temp.append(label2id[words[idx+1][0]])
                 else:
                     temp.append(label2id["O"])
@@ -65,7 +88,21 @@ def remove_punc(examples: List[str], marks: str) -> List[str]:
         new_examples.append(ex.translate(table))
     return new_examples
 
-def align_labels_with_tokens(labels:List[str], word_ids: List[Union[int, str]]) -> List[int] :
+def remove_non_letters(examples: List[str], marks: str) -> List[str]:
+    p = re.compile(f"[^\u0600-\u06FF|{marks}|\s]")
+    new_examples = []
+    for ex in examples:
+        new_examples.append(re.sub(p, '', ex))
+    return new_examples
+
+def unify_punc_marks(examples: List[str], mapping_marks: dict) -> List[str]:
+    new_examples = []
+    for ex in examples:
+        new_examples.append(ex.translate(str.maketrans(mapping_marks)))
+    return new_examples
+
+def align_labels_with_tokens(labels:List[str], word_ids: List[Union[int, str]], input_ids: List[int]) -> List[int] :
+    # print("align_labels_with_tokens")
     """
     make label list match the tokens. special tokens get a label of -100. 
     so it will be ignored in the loss function.
@@ -80,35 +117,39 @@ def align_labels_with_tokens(labels:List[str], word_ids: List[Union[int, str]]) 
             # Start of a new word!
             current_word = word_id
             label = -100 if word_id is None else labels[word_id]
-            new_labels.append(label)
+            new_labels.append(label)              
         else:
             # Same word as previous token or a special token
             new_labels.append(-100)
     return new_labels
-    
 
 def tokenize_and_align_labels(examples: arrow_dataset.Dataset): # returns transformers.tokenization_utils_base.BatchEncoding (a dict subclass)
-    examples["text"] = remove_punc(remove_diacritics(examples["text"]), extra_marks)
+    # print("tokenize_and_align_labels")
+    # examples["text"] is a list of strings 
+    # remove non letter characters except marks to be predicted
+    examples["text"] = unify_punc_marks(examples["text"], mapping_marks)
+    examples["text"] = remove_non_letters(remove_diacritics(examples["text"]), config.marks)
+    # all_labels is a List[List[int]]
     all_labels = create_labels(examples["text"], config.marks)
-    tokenized_inputs = tokenizer(remove_punc(examples["text"], config.marks))
+    # print(all_labels[3:6])
+    # remove marks from text before tokenization
+    tokenized_inputs = tokenizer(remove_punc(examples["text"], config.marks)) # tokenized_inputs is transformers.tokenization_utils_base.BatchEncoding  (a dict subclass) with keys dict_keys(['input_ids', 'attention_mask'])
+    # the value of each key in tokenized_inputs is a List[List[int]] where each sub list represent one point in the dataset 
     new_labels = []
     for i, labels in enumerate(all_labels):
         word_ids = tokenized_inputs.word_ids(i)
-        new_labels.append(align_labels_with_tokens(labels, word_ids))
+        new_labels.append(align_labels_with_tokens(labels, word_ids, tokenized_inputs.input_ids[i]))
 
     tokenized_inputs["labels"] = new_labels
     tokenized_inputs["word_ids"] = [tokenized_inputs.word_ids(i) for i in range(len(tokenized_inputs["input_ids"]))]
-    print("tokenize_and_align_labels type of tokenized_input", type(tokenized_inputs))
     return tokenized_inputs
 
+
 def group_and_split_texts(examples: arrow_dataset.Batch) -> dict:
-    """
-    split book text (one string) into chunks
-    """
     # Concatenate all texts 
     concatenated_examples = {k: sum(examples[k], []) for k in examples.keys()}
     # Compute length of concatenated texts
-    total_length = len(concatenated_examples[list(examples.keys())[0]])
+    total_length = len(concatenated_examples[list(examples.keys())[-1]])
     # drop the last chunk if it's smaller than chunk_size
     total_length = (total_length // config.chunk_size) * config.chunk_size
     # Split by chunks of max_len
@@ -141,8 +182,8 @@ def preprocess(dataset: arrow_dataset.Dataset) -> arrow_dataset.Dataset:
     result = dataset.map(
         tokenize_and_align_labels,
         batched=True,
-        remove_columns= dataset.column_names
+        remove_columns= ["book", "text"],
+        
     )
     result = result.map(group_and_split_texts, batched=True)
-    result = result.remove_columns("word_ids")
     return result
