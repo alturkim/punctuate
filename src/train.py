@@ -8,7 +8,7 @@ import evaluate
 from torch.optim import AdamW
 from transformers import get_scheduler
 from tqdm.auto import tqdm
-import pprint
+from pprint import pprint
 import os
 from models.baseModel import BaseModel
 from models.baseModel import criterion
