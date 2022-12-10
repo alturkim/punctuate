@@ -1,6 +1,7 @@
 from torch.utils.tensorboard import SummaryWriter
 import torch
-from datasets import load_dataset
+from datasets import load_dataset, load_from_disk
+
 from torch.utils.data import DataLoader
 from transformers import AdamW, AutoModelForTokenClassification, get_scheduler
 import evaluate
@@ -8,7 +9,7 @@ from torch.optim import AdamW
 from transformers import get_scheduler
 from tqdm.auto import tqdm
 import pprint
-
+import os
 from models.baseModel import BaseModel
 from models.baseModel import criterion
 from utils import save_checkpoint, RunningAverage, config
@@ -110,12 +111,25 @@ def evaluation():
 
 if __name__ == "__main__":
     raw_datasets, punc_datasets = dict(), dict()
-    raw_datasets["train"] = get_raw_datasets().select([3])  
-    raw_datasets["val"] = get_raw_datasets().select([3])  
-    punc_datasets["train"] = preprocess(raw_datasets["train"])
-    punc_datasets["val"] = preprocess(raw_datasets["val"])
+
+    # download and preprocess original dataset
+    # raw_datasets["all"] = get_raw_datasets()  
+    # punc_datasets["all"] = preprocess(raw_datasets["all"])
+    
+    # load previously processed dataset
+    punc_datasets["all"] = load_from_disk(config.processed_dataset_path)
+
+    data_splits_1 = punc_datasets["all"].train_test_split(test_size=0.3, seed=42)
+    punc_datasets["train"] = data_splits_1["train"]
+    data_splits_2 = data_splits_1["test"].train_test_split(test_size=0.3, seed=42)
+    punc_datasets["val"] = data_splits_2["train"]
+    punc_datasets["test"] = data_splits_2["test"]
+
+
     print("training dataset", punc_datasets["train"])
     print("validation dataset", punc_datasets["val"])
+    print("testing dataset", punc_datasets["test"])
+
     
     train_dataloader = DataLoader(
         punc_datasets["train"],
@@ -123,14 +137,18 @@ if __name__ == "__main__":
         collate_fn=data_collator,
         batch_size=config.batch_size,
     )
+
     eval_dataloader = DataLoader(
         punc_datasets["val"], collate_fn=data_collator, batch_size=config.batch_size
     )
 
+
+
     model = BaseModel(config.transformers_checkpoint, num_of_labels)
 
     # load best checkpoint
-    # model.load_state_dict(torch.load(os.path.join(checkpoint_dir, "best_checkpoint.pt"))['model_state_dict'])
+    if config.load_checkpoint:
+        model.load_state_dict(torch.load(os.path.join(config.checkpoint_dir, "best_checkpoint.pt"))['model_state_dict'])
     model.to(device)
  
     optimizer = AdamW(model.parameters(), lr=config.lr)

@@ -2,13 +2,16 @@
     "transformers_checkpoint": "distilbert-base-multilingual-cased",
     "chunk_size": 128,
     "marks":  "؟،؛:\".",
-    "checkpoint_dir": "output",
+    "checkpoint_dir": "/content/content/output",
     "tb_summary_path": "runs/punct_pred_experiment_1",
     "batch_size" : 16,
     "num_train_epochs" : 3,
     "lr":2e-5,
     "log_freq" : 1,
-    "text_chunk_size": 100
+    "text_chunk_size": 100,
+    "processed_dataset_path": "/content/content/processed_dataset",
+    "load_checkpoint": 0
+
 
 
 }
