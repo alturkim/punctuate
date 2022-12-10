@@ -2,15 +2,15 @@
     "transformers_checkpoint": "distilbert-base-multilingual-cased",
     "chunk_size": 128,
     "marks":  "؟،؛:\".",
-    "checkpoint_dir": "/content/content/output",
-    "tb_summary_path": "runs/punct_pred_experiment_1",
+    "checkpoint_dir": "/content/drive/MyDrive/ProjectPP/output",
+    "tb_summary_path": "/content/drive/MyDrive/ProjectPP/runs/punct_pred_experiment_1",
     "batch_size" : 16,
-    "num_train_epochs" : 3,
+    "num_train_epochs" : 1,
     "lr":2e-5,
     "log_freq" : 1,
-    "text_chunk_size": 100,
+    "text_chunk_size": 50,
     "processed_dataset_path": "/content/content/processed_dataset",
-    "load_checkpoint": 0
+    "load_checkpoint": false
 
 
 

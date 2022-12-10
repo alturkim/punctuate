@@ -31,6 +31,11 @@ class Config:
     chunk_size: int
     tb_summary_path: str
     log_freq: int
+    tb_summary_path: str
+    text_chunk_size: int
+    processed_dataset_path: str
+    load_checkpoint: bool
+
 
     @classmethod
     def from_dict(cls: typing.Type["Config"], arg_dict: dict):

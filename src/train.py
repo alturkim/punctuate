@@ -16,8 +16,8 @@ from utils import save_checkpoint, RunningAverage, config
 
 from prepare_dataset import id2label, label2id, preprocess, get_raw_datasets, data_collator
 
-tb_summary_path = 'runs/punct_pred_experiment_1'
-writer = SummaryWriter(tb_summary_path)
+
+writer = SummaryWriter(config.tb_summary_path)
 
 
 num_of_labels = len(config.marks) + 1
