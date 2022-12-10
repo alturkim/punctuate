@@ -118,6 +118,7 @@ if __name__ == "__main__":
     
     # load previously processed dataset
     punc_datasets["all"] = load_from_disk(config.processed_dataset_path)
+    punc_datasets["all"] = punc_datasets["all"].remove_columns("word_ids")
 
     data_splits_1 = punc_datasets["all"].train_test_split(test_size=0.3, seed=42)
     punc_datasets["train"] = data_splits_1["train"]
