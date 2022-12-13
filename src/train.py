@@ -77,6 +77,7 @@ def train():
 
         # Evaluation
         # results each epoch of training
+        print("evaluation ... epoch:", epoch)
         val_loss = evaluation()
         is_best = val_loss < best_val_loss
         best_val_loss = min(val_loss, best_val_loss)
@@ -96,6 +97,8 @@ def train():
 def evaluation():
     avg_loss = RunningAverage()
     model.eval()
+
+    eval_progress_bar = tqdm(range(len(eval_dataloader)))
     for batch in eval_dataloader:
         batch = {k: v.to(device) for k, v in batch.items()}
         with torch.no_grad():
@@ -106,6 +109,7 @@ def evaluation():
         predictions, labels = postprocess(predictions, labels)
         for metric in metrics:
             metric.add_batch(predictions=predictions, references=labels)
+        eval_progress_bar.update(1)
     return avg_loss.avg
 
 
@@ -164,12 +168,13 @@ if __name__ == "__main__":
     )
 
     # results before training
+    print("evaluating before training")
     evaluation()
     results = compute_metrics()
-    print("before training:")
     print("results")
     pprint(results)
 
     # print(model)
+    print("training ... ")
     train()
     writer.close()

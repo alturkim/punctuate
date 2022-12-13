@@ -7,10 +7,10 @@
     "batch_size" : 16,
     "num_train_epochs" : 1,
     "lr":2e-5,
-    "log_freq" : 1,
+    "log_freq" : 100,
     "text_chunk_size": 50,
     "processed_dataset_path": "/content/content/processed_dataset",
-    "load_checkpoint": false
+    "load_checkpoint": true
 
 
 
