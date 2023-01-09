@@ -1,5 +1,6 @@
 from torch.utils.tensorboard import SummaryWriter
 import torch
+from torch import nn
 from datasets import load_dataset, load_from_disk
 
 from torch.utils.data import DataLoader
@@ -12,17 +13,15 @@ from pprint import pprint
 import os
 from models.baseModel import BaseModel
 from models.baseModel import criterion
+import utils
 from utils import save_checkpoint, RunningAverage, config
 
 from prepare_dataset import id2label, label2id, preprocess, get_raw_datasets, data_collator
 
-
 writer = SummaryWriter(config.tb_summary_path)
-
 
 num_of_labels = len(config.marks) + 1
 device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-
 
 metrics = [evaluate.load(m) for m in ["precision", "recall", "f1"]]
 
@@ -48,69 +47,91 @@ def postprocess(predictions: torch.Tensor, labels: torch.Tensor):
     predictions = sum(predictions, [])
     return predictions, labels
 
-def train():
-    running_loss = 0.0
-    progress_bar = tqdm(range(num_training_steps))
-    best_val_loss = float('inf')
+class Trainer:
+    def __init__(self, 
+                 model: nn.Module, 
+                 train_dataloader: DataLoader,
+                 eval_dataloader: DataLoader,
+                 config: utils.Config,
+                 device: torch.device) -> None:
 
-    for epoch in range(config.num_train_epochs):
-        # Training
-        model.train()
-        for i, batch in enumerate(train_dataloader):
+        self.model = model
+        self.train_dataloader = train_dataloader
+        self.eval_dataloader = eval_dataloader
+        self.config = config
+        self.device = device
+        self.optimizer = AdamW(self.model.parameters(), lr=self.lr)
+
+        self.model.to(self.device)
+
+    def train(self) -> None:
+        running_loss = 0.0
+        num_training_steps = self.config.num_train_epochs * len(self.train_dataloader)
+        progress_bar = tqdm(range(num_training_steps))
+        best_val_loss = float('inf')
+        lr_scheduler = get_scheduler(
+            "linear",
+            optimizer=self.optimizer,
+            num_warmup_steps=0,
+            num_training_steps=num_training_steps,
+        )
+
+        for epoch in range(self.config.num_train_epochs):
+            # Training
+            self.model.train()
+            for i, batch in enumerate(self.train_dataloader):
+                batch = {k: v.to(device) for k, v in batch.items()}
+                outputs = self.model(**batch)
+                loss = outputs.loss
+                loss.backward()
+
+                self.optimizer.step()
+                lr_scheduler.step()
+                self.optimizer.zero_grad()
+                progress_bar.update(1)
+                running_loss += loss.item()
+                if i % self.config.log_freq == self.config.log_freq - 1:    # every log_freq mini-batches...
+                    # log the running loss
+                    writer.add_scalar("training loss",
+                                    running_loss / self.config.log_freq,
+                                    epoch * len(self.train_dataloader) + i)
+                    running_loss = 0.0
+
+            # Evaluation
+            # results after each epoch of training
+            print("evaluation ... epoch:", epoch)
+            val_loss = self.evaluation()
+            is_best = val_loss < best_val_loss
+            best_val_loss = min(val_loss, best_val_loss)
+            state = {'epoch': epoch+1,
+                    'model_state_dict': self.model.state_dict(),
+                    'optimizer_state_dict': self.optimizer.state_dict(),
+                    'loss': criterion,
+                    }
+
+            save_checkpoint(state, is_best, self.config.checkpoint_dir)
+            results = compute_metrics()
+            for mark in results["f1"].keys():
+                writer.add_scalar("F1 for "+mark, results["f1"][mark], epoch)
+        pprint(results)
+
+    def evaluation(self):
+        avg_loss = RunningAverage()
+        self.model.eval()
+
+        eval_progress_bar = tqdm(range(len(self.eval_dataloader)))
+        for batch in self.eval_dataloader:
             batch = {k: v.to(device) for k, v in batch.items()}
-            outputs = model(**batch)
-            loss = outputs.loss
-            loss.backward()
-
-            optimizer.step()
-            lr_scheduler.step()
-            optimizer.zero_grad()
-            progress_bar.update(1)
-            running_loss += loss.item()
-            if i % config.log_freq == config.log_freq-1:    # every log_freq mini-batches...
-            # if True:
-                # log the running loss
-                writer.add_scalar("training loss",
-                                running_loss / config.log_freq,
-                                epoch * len(train_dataloader) + i)
-                running_loss = 0.0
-
-        # Evaluation
-        # results each epoch of training
-        print("evaluation ... epoch:", epoch)
-        val_loss = evaluation()
-        is_best = val_loss < best_val_loss
-        best_val_loss = min(val_loss, best_val_loss)
-        state = {'epoch': epoch+1,
-                 'model_state_dict': model.state_dict(),
-                 'optimizer_state_dict': optimizer.state_dict(),
-                 'loss': criterion,
-                 }
-
-        save_checkpoint(state, is_best, config.checkpoint_dir)
-        results = compute_metrics()
-        for mark in results["f1"].keys():
-            writer.add_scalar("F1 for "+mark, results["f1"][mark], epoch)
-    pprint(results)
-
-
-def evaluation():
-    avg_loss = RunningAverage()
-    model.eval()
-
-    eval_progress_bar = tqdm(range(len(eval_dataloader)))
-    for batch in eval_dataloader:
-        batch = {k: v.to(device) for k, v in batch.items()}
-        with torch.no_grad():
-            outputs = model(**batch)
-        predictions = outputs.logits.argmax(dim=-1) # logits shape [16, 128, 9]
-        labels = batch["labels"]
-        avg_loss.update(outputs.loss.item())
-        predictions, labels = postprocess(predictions, labels)
-        for metric in metrics:
-            metric.add_batch(predictions=predictions, references=labels)
-        eval_progress_bar.update(1)
-    return avg_loss.avg
+            with torch.no_grad():
+                outputs = self.model(**batch)
+            predictions = outputs.logits.argmax(dim=-1) # logits shape [16, 128, 9]
+            labels = batch["labels"]
+            avg_loss.update(outputs.loss.item())
+            predictions, labels = postprocess(predictions, labels)
+            for metric in metrics:
+                metric.add_batch(predictions=predictions, references=labels)
+            eval_progress_bar.update(1)
+        return avg_loss.avg
 
 
 if __name__ == "__main__":
@@ -130,12 +151,10 @@ if __name__ == "__main__":
     punc_datasets["val"] = data_splits_2["train"]
     punc_datasets["test"] = data_splits_2["test"]
 
-
     print("training dataset", punc_datasets["train"])
     print("validation dataset", punc_datasets["val"])
     print("testing dataset", punc_datasets["test"])
 
-    
     train_dataloader = DataLoader(
         punc_datasets["train"],
         shuffle=True,
@@ -147,8 +166,6 @@ if __name__ == "__main__":
         punc_datasets["val"], collate_fn=data_collator, batch_size=config.batch_size
     )
 
-
-
     model = BaseModel(config.transformers_checkpoint, num_of_labels)
 
     # load best checkpoint
@@ -156,25 +173,16 @@ if __name__ == "__main__":
         model.load_state_dict(torch.load(os.path.join(config.checkpoint_dir, "best_checkpoint.pt"))['model_state_dict'])
     model.to(device)
  
-    optimizer = AdamW(model.parameters(), lr=config.lr)
-
-    num_update_steps_per_epoch = len(train_dataloader)
-    num_training_steps = config.num_train_epochs * num_update_steps_per_epoch
-    lr_scheduler = get_scheduler(
-        "linear",
-        optimizer=optimizer,
-        num_warmup_steps=0,
-        num_training_steps=num_training_steps,
-    )
+    trainer = Trainer(model, train_dataloader, eval_dataloader, config, device)
 
     # results before training
     print("evaluating before training")
-    evaluation()
+    trainer.evaluation()
     results = compute_metrics()
     print("results")
     pprint(results)
 
     # print(model)
     print("training ... ")
-    train()
+    trainer.train()
     writer.close()
