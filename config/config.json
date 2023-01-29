@@ -1,17 +1,23 @@
 {
     "transformers_checkpoint": "distilbert-base-multilingual-cased",
     "chunk_size": 128,
-    "marks":  "؟،؛:\".",
-    "checkpoint_dir": "/content/drive/MyDrive/ProjectPP/output",
-    "tb_summary_path": "/content/drive/MyDrive/ProjectPP/runs/punct_pred_experiment_1",
-    "batch_size" : 16,
-    "num_train_epochs" : 1,
+    "marks": "؟،؛:\".",
+    "mark2name": {
+                    "؛": "SEMICOLON",
+                    "،": "COMMA",
+                    "؟": "QMARK",
+                    ":": "COLON",
+                    "\"": "QOUTE",
+                    ".": "PERIOD",
+                    "O": "NO_PUNCT"
+                },
+    "checkpoint_dir": "output",
+    "tb_summary_path": "runs/punct_pred_experiment_2",
+    "batch_size" : 512,
+    "num_train_epochs" : 10,
     "lr":2e-5,
     "log_freq" : 100,
     "text_chunk_size": 50,
-    "processed_dataset_path": "/content/content/processed_dataset",
-    "load_checkpoint": true
-
-
-
+    "processed_dataset_path": "data/processed_dataset",
+    "load_checkpoint": false
 }

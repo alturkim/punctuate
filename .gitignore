@@ -127,3 +127,14 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+data/processed_dataset/dataset_info.json
+data/processed_dataset/dataset.arrow
+data/processed_dataset/state.json
+data/processed_dataset/cache-4c553dfbb2045adc.arrow
+data/processed_dataset/cache-70a0182f3b16f40e.arrow
+data/processed_dataset/cache-028013f5c895af00.arrow
+data/processed_dataset/cache-7576870efcb192e0.arrow
+data/processed_dataset/cache-afd5090fa2b0c16c.arrow
+data/processed_dataset/cache-b05492283ceb5897.arrow
+data/processed_dataset/cache-be8d5aee9f892576.arrow
+data/processed_dataset/cache-c75f8e1b1c99ee98.arrow

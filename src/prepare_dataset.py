@@ -13,6 +13,7 @@ tokenizer = AutoTokenizer.from_pretrained(config.transformers_checkpoint)
 data_collator = DataCollatorForTokenClassification(tokenizer=tokenizer)
 id2label = {i: label for i, label in enumerate(config.marks+"O")}
 label2id = {v: k for k, v in id2label.items()}
+label2name = {k: config.mark2name[k] for k in config.marks+"O"}
 # extra marks: marks that are not considered for prediction
 extra_marks = string.punctuation.translate(str.maketrans("", "", config.marks))
 inspection_list = ["'", ',', ';', '«', '»', '“', '﴾', '﴿']
@@ -145,7 +146,7 @@ def tokenize_and_align_labels(examples: arrow_dataset.Dataset): # returns transf
     return tokenized_inputs
 
 
-def group_and_split_texts(examples: arrow_dataset.Batch) -> dict:
+def group_and_split_texts(examples) -> dict:
     # Concatenate all texts 
     concatenated_examples = {k: sum(examples[k], []) for k in examples.keys()}
     # Compute length of concatenated texts

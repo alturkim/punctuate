@@ -26,12 +26,12 @@ class Config:
     transformers_checkpoint: str
     checkpoint_dir: str
     marks: str
+    mark2name: dict
     batch_size: int
     num_train_epochs: int
     chunk_size: int
     tb_summary_path: str
     log_freq: int
-    tb_summary_path: str
     text_chunk_size: int
     processed_dataset_path: str
     load_checkpoint: bool
@@ -60,6 +60,9 @@ def save_checkpoint(state: dict, is_best: bool, checkpoint_dir: str):
     if is_best:
         torch.save(state, os.path.join(checkpoint_dir, 'best_checkpoint.pt'))
 
-
-arg_dict = json.load(open("../config/config.json"))
+ROOT_DIR = os.path.realpath(os.path.join(os.path.dirname(__file__), '..'))
+arg_dict = json.load(open(os.path.join(ROOT_DIR, 'config', 'config.json'), encoding='utf-8'))
+# append project root to relative paths
+for k in ["checkpoint_dir", "tb_summary_path", "processed_dataset_path"]:
+    arg_dict[k] = os.path.join(ROOT_DIR, arg_dict[k])
 config = Config.from_dict(arg_dict)
