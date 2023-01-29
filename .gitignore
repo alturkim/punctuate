@@ -152,3 +152,7 @@ output/checkpoint.pt
 runs/punct_pred_experiment_2/events.out.tfevents.1674977770.ICS-gnode1.11016.0
 runs/punct_pred_experiment_2/events.out.tfevents.1674977838.ICS-gnode1.16060.0
 output/best_checkpoint.pt
+runs/punct_pred_experiment_2/events.out.tfevents.1675007741.ICS-gnode1.17120.0
+runs/punct_pred_experiment_2/events.out.tfevents.1675007856.ICS-gnode1.13988.0
+runs/punct_pred_experiment_2/events.out.tfevents.1675007946.ICS-gnode1.15500.0
+runs/punct_pred_experiment_2/events.out.tfevents.1675008109.ICS-gnode1.16456.0
