@@ -1,5 +1,5 @@
 {
-    "transformers_checkpoint": "distilbert-base-multilingual-cased",
+    "transformers_checkpoint": "bigscience/bloom-560m",
     "chunk_size": 128,
     "marks": "؟،؛:\".",
     "mark2name": {
@@ -13,7 +13,7 @@
                 },
     "checkpoint_dir": "output",
     "tb_summary_path": "runs/punct_pred_experiment_2",
-    "batch_size" : 512,
+    "batch_size" : 128,
     "num_train_epochs" : 10,
     "lr":2e-5,
     "log_freq" : 100,

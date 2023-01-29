@@ -138,3 +138,16 @@ data/processed_dataset/cache-afd5090fa2b0c16c.arrow
 data/processed_dataset/cache-b05492283ceb5897.arrow
 data/processed_dataset/cache-be8d5aee9f892576.arrow
 data/processed_dataset/cache-c75f8e1b1c99ee98.arrow
+runs/punct_pred_experiment_1/events.out.tfevents.1674859377.ICS-gnode1.3352.0
+runs/punct_pred_experiment_1/events.out.tfevents.1674928350.ICS-gnode1.3512.0
+runs/punct_pred_experiment_1/events.out.tfevents.1674929481.ICS-gnode1.15476.0
+runs/punct_pred_experiment_1/events.out.tfevents.1674929777.ICS-gnode1.12312.0
+runs/punct_pred_experiment_1/events.out.tfevents.1674930353.ICS-gnode1.9580.0
+runs/punct_pred_experiment_1/events.out.tfevents.1674930399.ICS-gnode1.15944.0
+runs/punct_pred_experiment_1/events.out.tfevents.1674933107.ICS-gnode1.4328.0
+runs/punct_pred_experiment_2/events.out.tfevents.1674975276.ICS-gnode1.12828.0
+runs/punct_pred_experiment_2/events.out.tfevents.1674975870.ICS-gnode1.14368.0
+output/baseline_checkpoint.pt
+output/checkpoint.pt
+runs/punct_pred_experiment_2/events.out.tfevents.1674977770.ICS-gnode1.11016.0
+runs/punct_pred_experiment_2/events.out.tfevents.1674977838.ICS-gnode1.16060.0

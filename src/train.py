@@ -178,10 +178,10 @@ if __name__ == "__main__":
 
     # results before training
     print("evaluating before training")
-    trainer.evaluation()
-    results = compute_metrics()
-    print("results")
-    pprint(results)
+    # trainer.evaluation()
+    # results = compute_metrics()
+    # print("results")
+    # pprint(results)
 
     # print(model)
     print("training ... ")

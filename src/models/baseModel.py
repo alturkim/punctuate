@@ -14,7 +14,7 @@ class BaseModel(nn.Module):
 
         self.model = AutoModel.from_pretrained(checkpoint) # ,config=AutoConfig.from_pretrained(checkpoint, output_attentions=True,output_hidden_states=True)
         self.dropout = nn.Dropout(0.1)
-        self.classifier = nn.Linear(768,num_labels) 
+        self.classifier = nn.Linear(1024,num_labels) 
 
     def forward(self, input_ids=None, attention_mask=None,labels=None):
         # outputs is transformers.modeling_outputs.BaseModelOutput
