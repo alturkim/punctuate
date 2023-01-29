@@ -2,12 +2,12 @@ from torch import nn
 from transformers import AutoModel
 from transformers.modeling_outputs import TokenClassifierOutput
 
-from baseModel import criterion
+from .baseModel import criterion
 
 class LargeModel(nn.Module):
     def __init__(self, config):
         super(LargeModel, self).__init__()
-        self.num_labels = len(config.marks)
+        self.num_labels = len(config.marks)+1
         self.embed_size = config.embed_size
         self.model = AutoModel.from_pretrained(config.transformers_checkpoint)
         self.linear = nn.Linear(self.embed_size, self.embed_size)

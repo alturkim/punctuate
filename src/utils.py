@@ -24,6 +24,8 @@ class RunningAverage:
 class Config:
     lr: float
     transformers_checkpoint: str
+    embed_size: int
+    model_class: str
     checkpoint_dir: str
     marks: str
     mark2name: dict
