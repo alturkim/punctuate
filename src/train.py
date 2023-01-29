@@ -11,8 +11,8 @@ from transformers import get_scheduler
 from tqdm.auto import tqdm
 from pprint import pprint
 import os
-from models.baseModel import BaseModel
-from models.baseModel import criterion
+from models.baseModel import BaseModel, criterion
+from models.largeModel import LargeModel
 import utils
 from utils import save_checkpoint, RunningAverage, config
 
@@ -167,7 +167,10 @@ if __name__ == "__main__":
         punc_datasets["val"], collate_fn=data_collator, batch_size=config.batch_size
     )
 
-    model = BaseModel(config.transformers_checkpoint, num_of_labels)
+    if config.model_class == "LargeModel":
+        model = LargeModel(config)
+    else:
+        model = BaseModel(config.transformers_checkpoint, num_of_labels)
 
     # load best checkpoint
     if config.load_checkpoint:

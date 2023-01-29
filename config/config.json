@@ -1,5 +1,7 @@
 {
     "transformers_checkpoint": "bigscience/bloom-560m",
+    "embed_size": 1024,
+    "model_class": "LargeModel",
     "chunk_size": 128,
     "marks": "؟،؛:\".",
     "mark2name": {
