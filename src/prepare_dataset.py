@@ -22,7 +22,9 @@ mapping_marks = {k:v for k, v in zip(inspection_list, replacement_list)}
 
 def get_raw_datasets() -> arrow_dataset.Dataset:
     # columns: book, text where book is the title and text is the content as a list of one string 
-    raw_datasets = load_dataset("tashkeela", split="train")
+    print("downloading")
+    raw_datasets = load_dataset("tashkeela", split="train", download_mode="force_redownload")
+    print("done downloading")
     
     sub_datasets = []
     for d in raw_datasets:

@@ -22,6 +22,8 @@ writer = SummaryWriter(config.tb_summary_path)
 
 num_of_labels = len(config.marks) + 1
 device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+# device = torch.device("cpu")
+
 print("Running on:", device)
 
 metrics = [evaluate.load(m) for m in ["precision", "recall", "f1"]]
@@ -138,13 +140,17 @@ class Trainer:
 if __name__ == "__main__":
     raw_datasets, punc_datasets = dict(), dict()
 
-    # download and preprocess original dataset
-    # raw_datasets["all"] = get_raw_datasets()  
-    # punc_datasets["all"] = preprocess(raw_datasets["all"])
-    
-    # load previously processed dataset
-    punc_datasets["all"] = load_from_disk(config.processed_dataset_path)
-    punc_datasets["all"] = punc_datasets["all"].remove_columns("word_ids")#.select(list(range(100)))
+    if not config.load_processed_dataset:
+        # download and preprocess original dataset
+        save_dataset_path = config.transformers_checkpoint.replace('/','_').replace('-','_')
+        raw_datasets["all"] = get_raw_datasets()
+        punc_datasets["all"] = preprocess(raw_datasets["all"])
+        punc_datasets["all"].save_to_disk(f"data/{save_dataset_path}")
+        exit()
+    else:
+        # load previously processed dataset
+        punc_datasets["all"] = load_from_disk(config.processed_dataset_path)
+        punc_datasets["all"] = punc_datasets["all"].remove_columns("word_ids")#.select(list(range(100)))
 
     data_splits_1 = punc_datasets["all"].train_test_split(test_size=0.3, seed=42)
     punc_datasets["train"] = data_splits_1["train"]
@@ -171,14 +177,14 @@ if __name__ == "__main__":
         model = LargeModel(config)
     else:
         model = BaseModel(config.transformers_checkpoint, num_of_labels)
-
+    # print(list(model.named_parameters()))
     # load best checkpoint
     if config.load_checkpoint:
         model.load_state_dict(torch.load(os.path.join(config.checkpoint_dir, "best_checkpoint.pt"))['model_state_dict'])
     # model.to(device)
  
     trainer = Trainer(model, train_dataloader, eval_dataloader, config, device)
-
+    print("trainer created")
     # results before training
     print("evaluating before training")
     # trainer.evaluation()

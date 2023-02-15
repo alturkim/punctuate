@@ -2,3 +2,4 @@ datasets
 evaluate
 transformers[sentencepiece]
 tqdm
+tensorboard

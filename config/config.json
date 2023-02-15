@@ -1,8 +1,8 @@
 {
-    "transformers_checkpoint": "bigscience/bloom-560m",
-    "embed_size": 1024,
+    "transformers_checkpoint": "CAMeL-Lab/bert-base-arabic-camelbert-ca",
+    "embed_size": 768,
     "model_class": "LargeModel",
-    "chunk_size": 128,
+    "chunk_size": 512,
     "marks": "؟،؛:\".",
     "mark2name": {
                     "؛": "SEMICOLON",
@@ -14,12 +14,13 @@
                     "O": "NO_PUNCT"
                 },
     "checkpoint_dir": "output",
-    "tb_summary_path": "runs/punct_pred_experiment_2",
-    "batch_size" : 128,
-    "num_train_epochs" : 10,
+    "tb_summary_path": "runs/punct_pred_experiment_4",
+    "batch_size" : 4,
+    "num_train_epochs" : 80,
     "lr":2e-5,
     "log_freq" : 100,
     "text_chunk_size": 50,
     "processed_dataset_path": "data/processed_dataset",
-    "load_checkpoint": false
+    "load_checkpoint": false,
+    "load_processed_dataset": false
 }

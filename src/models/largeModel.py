@@ -10,6 +10,8 @@ class LargeModel(nn.Module):
         self.num_labels = len(config.marks)+1
         self.embed_size = config.embed_size
         self.model = AutoModel.from_pretrained(config.transformers_checkpoint)
+        for param in self.model.parameters():
+            param.requires_grad = False
         self.linear = nn.Linear(self.embed_size, self.embed_size)
         self.dropout = nn.Dropout(0.1)
         self.classifier = nn.Linear(self.embed_size, self.num_labels) 

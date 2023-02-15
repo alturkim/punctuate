@@ -37,6 +37,7 @@ class Config:
     text_chunk_size: int
     processed_dataset_path: str
     load_checkpoint: bool
+    load_processed_dataset: bool
 
 
     @classmethod
