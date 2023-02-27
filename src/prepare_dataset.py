@@ -6,8 +6,11 @@ from typing import List, Union
 import collections
 import re
 import string
+import logging
 
 from utils import config
+
+logger = logging.getLogger(__name__)
 
 tokenizer = AutoTokenizer.from_pretrained(config.transformers_checkpoint)
 data_collator = DataCollatorForTokenClassification(tokenizer=tokenizer)
@@ -16,26 +19,32 @@ label2id = {v: k for k, v in id2label.items()}
 label2name = {k: config.mark2name[k] for k in config.marks+"O"}
 # extra marks: marks that are not considered for prediction
 extra_marks = string.punctuation.translate(str.maketrans("", "", config.marks))
+# replace each mark in the inspection list by the corresponding mark in the replacement_list
 inspection_list = ["'", ',', ';', '«', '»', '“', '﴾', '﴿']
 replacement_list = ["", '،', '؛', '"', '"', '"', '"', '"']
 mapping_marks = {k:v for k, v in zip(inspection_list, replacement_list)}
 
 def get_raw_datasets() -> arrow_dataset.Dataset:
     # columns: book, text where book is the title and text is the content as a list of one string 
-    print("downloading")
+    logger.info("Downloading dataset")
     raw_datasets = load_dataset("tashkeela", split="train", download_mode="force_redownload")
-    print("done downloading")
+    logger.info("done downloading")
     
     sub_datasets = []
+    logger.info("Spliting book content into multiple strings")
     for d in raw_datasets:
-        sub_datasets.append(split_text(d))
+        sub_datasets.append(_split_text(d))
     raw_datasets = concatenate_datasets(sub_datasets)
     # after spliting: columns: book, text where book is the title and text is the part of the content as a list of one string 
     # each book was one element in the dataset, now each book is represented by multiple elements, each one with same book value
     # but text value will be a list of one string representing part of the content
     return raw_datasets
 
-def split_text(examples: arrow_dataset.Dataset):
+def _split_text(examples: arrow_dataset.Dataset) -> arrow_dataset.Dataset:
+    """
+    Receives a Dataset object where columns are book and text, book is the book title and text is the content as a list of one string.
+    It splits the content into a list of multiple strings each of size config.text_chunk_size.
+    """
     result = {"book": [], "text": []}
     words =  examples["text"].split()
     sentences = [" ".join(words[i : i + config.text_chunk_size]) for i in range(0, len(words), config.text_chunk_size)]
@@ -45,10 +54,9 @@ def split_text(examples: arrow_dataset.Dataset):
     examples = Dataset.from_dict(result)
     return examples
 
-def create_labels(examples: List[str], marks: str) -> List[List[str]]:
-    # print("create_labels")
+def _create_labels(examples: List[str], marks: str) -> List[List[str]]:
     """
-    create labels at the word level (words are whatever separated by space), 
+    Create labels at the word level (words are whatever separated by space), 
     where each word will have a label indicating the punctuation mark that 
     follows it, if any, and O if none.
     """
@@ -77,41 +85,45 @@ def create_labels(examples: List[str], marks: str) -> List[List[str]]:
         labels.append(temp)
     return labels
 
-def remove_diacritics(examples: List[str]) -> List[str]:
+def _remove_diacritics(examples: List[str]) -> List[str]:
     diact = re.compile(" ّ |  َ |  ً |  ُ |   ٌ |   ِ |   ٍ |   ْ  |  ـ   ", re.VERBOSE)
     new_examples = []
     for ex in examples:
         new_examples.append(re.sub(diact, '', ex))
     return new_examples
 
-def remove_punc(examples: List[str], marks: str) -> List[str]:
+def _remove_punc(examples: List[str], marks: str) -> List[str]:
     table = str.maketrans("", "", marks)
     new_examples = []
     for ex in examples:
         new_examples.append(ex.translate(table))
     return new_examples
 
-def remove_non_letters(examples: List[str], marks: str) -> List[str]:
+def _remove_non_letters(examples: List[str], marks: str) -> List[str]:
+    """
+    Removes any non-arabic letters (keep punctuations)
+    """
     p = re.compile(f"[^\u0600-\u06FF|{marks}|\s]")
     new_examples = []
     for ex in examples:
         new_examples.append(re.sub(p, '', ex))
     return new_examples
 
-def unify_punc_marks(examples: List[str], mapping_marks: dict) -> List[str]:
+def _unify_punc_marks(examples: List[str], mapping_marks: dict) -> List[str]:
+    """
+    Reduce mutliple versions of the same mark to a unified mark
+    """
     new_examples = []
     for ex in examples:
         new_examples.append(ex.translate(str.maketrans(mapping_marks)))
     return new_examples
 
 def align_labels_with_tokens(labels:List[str], word_ids: List[Union[int, str]], input_ids: List[int]) -> List[int] :
-    # print("align_labels_with_tokens")
     """
-    make label list match the tokens. special tokens get a label of -100. 
-    so it will be ignored in the loss function.
-    each word gets one label, so -100 is assigned to the other subtokens. 
-    This is to avoid long words that split into lots of subtokens contributing 
-    heavily to the loss. 
+    Make label list aligned with the tokens list. 
+    Special tokens get a label of -100, to be ignored by the loss function.
+    A word is divided into multiple tokens, only the first token gets the label of the word, and -100 is assigned to the other subtokens. 
+    This is to avoid long words that split into lots of subtokens contributing heavily to the loss. 
     """
     new_labels = []
     current_word = None
@@ -126,18 +138,22 @@ def align_labels_with_tokens(labels:List[str], word_ids: List[Union[int, str]], 
             new_labels.append(-100)
     return new_labels
 
-def tokenize_and_align_labels(examples: arrow_dataset.Dataset): # returns transformers.tokenization_utils_base.BatchEncoding (a dict subclass)
-    # print("tokenize_and_align_labels")
+def _tokenize_and_align_labels(examples: arrow_dataset.Dataset): # returns transformers.tokenization_utils_base.BatchEncoding (a dict subclass)
     # examples["text"] is a list of strings 
+    
+    examples["text"] = _unify_punc_marks(examples["text"], mapping_marks)
     # remove non letter characters except marks to be predicted
-    examples["text"] = unify_punc_marks(examples["text"], mapping_marks)
-    examples["text"] = remove_non_letters(remove_diacritics(examples["text"]), config.marks)
-    # all_labels is a List[List[int]]
-    all_labels = create_labels(examples["text"], config.marks)
-    # print(all_labels[3:6])
+    examples["text"] = _remove_diacritics(examples["text"])
+    examples["text"] = _remove_non_letters(examples["text"], config.marks)
+    
+    all_labels: List[List[int]] = _create_labels(examples["text"], config.marks)
+
     # remove marks from text before tokenization
-    tokenized_inputs = tokenizer(remove_punc(examples["text"], config.marks)) # tokenized_inputs is transformers.tokenization_utils_base.BatchEncoding  (a dict subclass) with keys dict_keys(['input_ids', 'attention_mask'])
+    examples["text"] = _remove_punc(examples["text"], config.marks)
+    tokenized_inputs = tokenizer(examples["text"]) # tokenized_inputs is transformers.tokenization_utils_base.BatchEncoding  (a dict subclass) with keys dict_keys(['input_ids', 'attention_mask'])
     # the value of each key in tokenized_inputs is a List[List[int]] where each sub list represent one point in the dataset 
+    
+    # align labels with tokens
     new_labels = []
     for i, labels in enumerate(all_labels):
         word_ids = tokenized_inputs.word_ids(i)
@@ -148,7 +164,10 @@ def tokenize_and_align_labels(examples: arrow_dataset.Dataset): # returns transf
     return tokenized_inputs
 
 
-def group_and_split_texts(examples) -> dict:
+def _group_and_split_samples(examples) -> dict:
+    """
+    Create a dictionary where values are list of tokens of same size.
+    """
     # Concatenate all texts 
     concatenated_examples = {k: sum(examples[k], []) for k in examples.keys()}
     # Compute length of concatenated texts
@@ -182,11 +201,21 @@ def add_punct(decoded_str: str, word_ids: list, labels:list) -> str:
     return output
 
 def preprocess(dataset: arrow_dataset.Dataset) -> arrow_dataset.Dataset:
+    """
+    The main preprocessing function which will call all necessary functions to produce a data set ready to be consumed by the training script
+    """
     result = dataset.map(
-        tokenize_and_align_labels,
+        _tokenize_and_align_labels,
         batched=True,
         remove_columns= ["book", "text"],
         
     )
-    result = result.map(group_and_split_texts, batched=True)
+    result = result.map(_group_and_split_samples, batched=True)
     return result
+
+if __name__ == "__main__":
+    logger.info("Preparing dataset ...")
+    save_dataset_path = config.transformers_checkpoint.replace('/','_').replace('-','_')
+    raw_datasets = get_raw_datasets()
+    punc_datasets = preprocess(raw_datasets)
+    punc_datasets.save_to_disk(f"data/{save_dataset_path}")
