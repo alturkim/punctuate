@@ -1,9 +1,8 @@
 from datasets import load_dataset, concatenate_datasets, arrow_dataset, Dataset
 from transformers import AutoTokenizer, DataCollatorForTokenClassification
-from pprint import pprint
 import numpy as np
+import wandb
 from typing import List, Union
-import collections
 import re
 import string
 import logging
@@ -213,9 +212,23 @@ def preprocess(dataset: arrow_dataset.Dataset) -> arrow_dataset.Dataset:
     result = result.map(_group_and_split_samples, batched=True)
     return result
 
+def _create_table(examples: List[str], labels:List[str]):
+    """
+    Create a WandB table for the dataset
+    """
+    # TODO decode tokenized samples and their labels
+    
+    table = wandb.Table(columns=["Text", "Labels"])
+    for ex, label_lst in zip(examples, labels):
+        table.add_data(ex, label_lst)
+    return table
+
 if __name__ == "__main__":
     logger.info("Preparing dataset ...")
     save_dataset_path = config.transformers_checkpoint.replace('/','_').replace('-','_')
     raw_datasets = get_raw_datasets()
+    if config.debug:
+        raw_datasets = raw_datasets.select(list(range(100)))
+        
     punc_datasets = preprocess(raw_datasets)
     punc_datasets.save_to_disk(f"data/{save_dataset_path}")

@@ -22,6 +22,8 @@ class RunningAverage:
 
 @dataclass
 class Config:
+    wand_project: str
+    debug: bool
     lr: float
     transformers_checkpoint: str
     embed_size: int

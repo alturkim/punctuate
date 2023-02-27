@@ -2,7 +2,7 @@ from torch import nn
 from transformers import AutoModel
 from transformers.modeling_outputs import TokenClassifierOutput
 
-from .baseModel import criterion
+criterion = nn.CrossEntropyLoss()
 
 class LargeModel(nn.Module):
     def __init__(self, config):

@@ -140,19 +140,15 @@ class Trainer:
 if __name__ == "__main__":
     raw_datasets, punc_datasets = dict(), dict()
 
-    if not config.load_processed_dataset:
-        # download and preprocess original dataset
-        save_dataset_path = config.transformers_checkpoint.replace('/','_').replace('-','_')
-        raw_datasets["all"] = get_raw_datasets()
-        punc_datasets["all"] = preprocess(raw_datasets["all"])
-        punc_datasets["all"].save_to_disk(f"data/{save_dataset_path}")
-        exit()
-    else:
-        # load previously processed dataset
-        punc_datasets["all"] = load_from_disk(config.processed_dataset_path)
-        punc_datasets["all"] = punc_datasets["all"].remove_columns("word_ids")#.select(list(range(100)))
-        if config.transformers_checkpoint.startswith("CAMeL"):
-            punc_datasets["all"] = punc_datasets["all"].remove_columns("token_type_ids")
+    # load previously processed dataset
+    punc_datasets["all"] = load_from_disk(config.processed_dataset_path)
+
+    if config.debug:
+        punc_datasets["all"] = load_from_disk(config.processed_dataset_path).select(list(range(100)))
+
+    punc_datasets["all"] = punc_datasets["all"].remove_columns("word_ids")
+    if config.transformers_checkpoint.startswith("CAMeL"):
+        punc_datasets["all"] = punc_datasets["all"].remove_columns("token_type_ids")
 
     data_splits_1 = punc_datasets["all"].train_test_split(test_size=0.3, seed=42)
     punc_datasets["train"] = data_splits_1["train"]

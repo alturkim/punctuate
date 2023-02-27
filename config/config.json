@@ -1,4 +1,6 @@
 {
+    "wand_project": "Punctuation Prediction",
+    "DEBUG": false,
     "transformers_checkpoint": "CAMeL-Lab/bert-base-arabic-camelbert-ca",
     "embed_size": 768,
     "model_class": "LargeModel",
@@ -14,13 +16,13 @@
                     "O": "NO_PUNCT"
                 },
     "checkpoint_dir": "output",
-    "tb_summary_path": "runs/punct_pred_experiment_4",
-    "batch_size" : 4,
+    "tb_summary_path": "runs/punct_pred_experiment_6",
+    "batch_size" : 128,
     "num_train_epochs" : 80,
     "lr":2e-5,
     "log_freq" : 100,
-    "text_chunk_size": 50,
-    "processed_dataset_path": "data/processed_dataset",
+    "text_chunk_size": 500,
+    "processed_dataset_path": "data/CAMeL_Lab_bert_base_arabic_camelbert_ca",
     "load_checkpoint": false,
-    "load_processed_dataset": false
+    "load_processed_dataset": true
 }
