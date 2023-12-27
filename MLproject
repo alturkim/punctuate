@@ -1,0 +1,5 @@
+name: pun_pred
+# mlflow run .  --env-manager local
+entry_points:
+  main:
+    command: "python src/main.py"

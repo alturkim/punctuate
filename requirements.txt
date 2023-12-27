@@ -1,6 +1,6 @@
-datasets
-evaluate
-transformers[sentencepiece]
-tqdm
-tensorboard
-wandb
+# datasets
+# evaluate
+# transformers[sentencepiece]
+# tqdm
+# tensorboard
+# wandb
