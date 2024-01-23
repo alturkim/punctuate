@@ -19,14 +19,15 @@ transformers_checkpoint: "CAMeL-Lab/bert-base-arabic-camelbert-ca"
 embed_size: 768
 model_class: "LargeModel"
 chunk_size: 512
-marks: "؟،؛:\"."
+tokens_max_len: 512
+marks: "؟،؛:\"۔"
 mark2name:
   ؛: "SEMICOLON"
   ،: "COMMA"
   ؟: "QMARK"
   ":": "COLON"
   "\"": "QOUTE"
-  ".": "PERIOD"
+  "۔": "PERIOD"
   O: "NO_PUNCT"
 checkpoint_dir: "output"
 tb_summary_path: "runs/punct_pred_experiment_6"

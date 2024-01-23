@@ -6,7 +6,8 @@ from prepare_dataset import download_dataset, clean_dataset, preprocess_dataset
 _steps = [
     # "download",
     # "clean",
-    "preprocess"
+    "preprocess",
+    # "balance",
 ]
 
 # This automatically reads in the configuration

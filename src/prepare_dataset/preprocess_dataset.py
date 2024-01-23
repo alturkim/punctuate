@@ -109,51 +109,45 @@ class Preprocessor:
         """Combine multiple consective sample as long as their combined length is below max_length
         """
         max_length = self.config["tokens_max_len"] - 2 # -2 to account for added special tokens later
-        combined_lists_dict = {"input_ids": [], "word_ids": [], "labels": [], "attention_mask": []}
+        combined_input_ids = []
         combined_original = []
-        curr_combined_input_ids_list = []
+        curr_combined_input_ids = []
         start_index = 0
 
         for i, input_ids in enumerate(tokenized_inputs["input_ids"]):
-            if not curr_combined_input_ids_list:
+            if not curr_combined_input_ids:
                 # If the current combined list is empty, add the inner list
-                curr_combined_input_ids_list = input_ids
-            elif len(curr_combined_input_ids_list) + len(input_ids) <= max_length:
+                curr_combined_input_ids = input_ids
+            elif len(curr_combined_input_ids) + len(input_ids) <= max_length:
                 # If adding the inner list does not exceed the threshold, combine them
-                curr_combined_input_ids_list += input_ids
+                curr_combined_input_ids += input_ids
             else:
                 # If adding the inner list exceeds the threshold, start a new combined list
                 end_index = i - 1  # Calculate the end index of the previous combined list
 
-                combined_lists_dict["input_ids"].append(curr_combined_input_ids_list)         
-                combined_lists_dict["labels"].append(list(chain(*tokenized_inputs["labels"][start_index:end_index+1])))
-                combined_lists_dict["attention_mask"].append(list(chain(*tokenized_inputs["attention_mask"][start_index:end_index+1])))
+                combined_input_ids.append(curr_combined_input_ids)         
                 combined_original.append(" ".join(org_text[start_index:end_index+1]))
 
-                curr_combined_input_ids_list = input_ids
+                curr_combined_input_ids = input_ids
                 start_index = i  # Update the start index
 
         # Add the last combined list (if any)
-        if curr_combined_input_ids_list:
-            end_index = len(tokenized_inputs["input_ids"]) - 1  # Calculate the end index for the last combined list
+        if curr_combined_input_ids:
+            end_index = len(tokenized_inputs) - 1  # Calculate the end index for the last combined list
 
-            combined_lists_dict["input_ids"].append(curr_combined_input_ids_list)         
-            # combined_lists_dict["word_ids"].append(list(chain(*tokenized_inputs["word_ids"][start_index:end_index+1])))
-            combined_lists_dict["labels"].append(list(chain(*tokenized_inputs["labels"][start_index:end_index+1])))
-            combined_lists_dict["attention_mask"].append(list(chain(*tokenized_inputs["attention_mask"][start_index:end_index+1])))
+            combined_input_ids.append(curr_combined_input_ids)         
             combined_original.append(" ".join(org_text[start_index:end_index+1]))
 
-        for key in tokenized_inputs.keys():
-            assert len(tokenized_inputs[key]) == len(tokenized_inputs["input_ids"]), f"problem with {key}"
-        return combined_lists_dict, combined_original
+        return combined_input_ids, combined_original
 
-    def _tokens_labels_to_sent(self, input_ids: list[int], attention_mask: list[int], word_ids: list[int], labels: list[int]) -> str:
-        """Convert tokens and labels to full sentence        
+    def _tokens_labels_to_sent(self, original, input_ids: list[int], attention_mask: list[int], word_ids: list[int], labels: list[int]) -> str:
+        """Convert tokens and labels to a full sentence (single sample conversion)       
         """
         labels = np.array(labels)
         input_ids = np.array(input_ids)
         word_ids = np.array(word_ids)
         attention_mask = np.array(attention_mask, dtype=bool)
+
         input_ids = input_ids[attention_mask]
         word_ids = word_ids[attention_mask]
         labels = labels[labels!=-100]
@@ -175,21 +169,24 @@ class Preprocessor:
             assert len(original) == len(tokenized_inputs[key]), "number of samples are NOT equal"
 
         reconstructed = []
-        for input_ids, attention_mask, word_ids, labels in zip(tokenized_inputs["input_ids"],
+        for idx, (input_ids, attention_mask, word_ids, labels) in enumerate(zip(tokenized_inputs["input_ids"],
                                                                 tokenized_inputs["attention_mask"],
                                                                 tokenized_inputs["word_ids"],
-                                                                tokenized_inputs["labels"]):
-            sent: str = self._tokens_labels_to_sent(input_ids, attention_mask, word_ids, labels)
+                                                                tokenized_inputs["labels"])):
+ 
+            sent: str = self._tokens_labels_to_sent(original[idx],input_ids, attention_mask, word_ids, labels)
             reconstructed.append(sent)
         return reconstructed
 
-    def preprocess(self, list_file_names: List[str]) -> None:
+    def preprocess(self, list_file_names: List[str]) -> (list, list):
         """
         The main preprocessing method which will call all necessary methods to produce a data set ready
         to be consumed by the training script.
         """
         random_samples = []
         stats = []
+        random.seed(1)
+
         for file in list_file_names:
             src_file_path = os.path.join(self.config["preprocess"]["input_path"], file)
             dst_file_path = os.path.join(self.config["preprocess"]["output_path"], file)
@@ -207,20 +204,17 @@ class Preprocessor:
                 tokenized_inputs = self._tokenize_and_align_labels(org_text, add_special_tokens=False, truncation=True)
                 self._test_by_reconstruct(org_text, tokenized_inputs)
                 # _group_samples will not work properly when add_special_tokens is true above
-                tokenized_inputs, org_text = self._group_samples(tokenized_inputs, org_text)
-      
+                _, org_text = self._group_samples(tokenized_inputs, org_text)
+                org_text = [s for s in org_text if len(s) > 0]
                 # the tokenized_inputs needs to be with special tokens and all to avoid having to modify the labels later
                 tokenized_inputs = self._tokenize_and_align_labels(org_text, add_special_tokens=True, truncation=True)
                 reconstructed = self._test_by_reconstruct(org_text, tokenized_inputs)
-            
-            # logging
-            random.seed(1)
-            idx = random.randint(0, len(org_text)-1)
 
-            recon_sent = self._tokens_labels_to_sent(tokenized_inputs["input_ids"][idx],
-                                                    tokenized_inputs["attention_mask"][idx], 
-                                                    tokenized_inputs["word_ids"][idx],
-                                                    tokenized_inputs["labels"][idx])
+            # save preprocessed book to disk
+            Dataset.from_dict(tokenized_inputs).save_to_disk(dst_file_path[:-4]) #:-4 remove .txt 
+
+            # prepare stats for logging
+            idx = random.randint(0, len(org_text)-1)
             sample = [
                 file, org_text[idx], reconstructed[idx]
             ]
@@ -233,19 +227,13 @@ class Preprocessor:
             ]
             random_samples.append(sample)
             stats.append(book_stat)
-            Dataset.from_dict(tokenized_inputs).save_to_disk(dst_file_path[:-4]) #:-4 remove .txt 
-
-            # with open(dst_file_path, "w") as out_file:
-            #     for inner_list in tokenized:
-            #         line = str(inner_list)
-            #         out_file.write(f"{line}\n")
+            
         return random_samples, stats
     
 
 def go(config):
     run = wandb.init(job_type="preprocess_data")
     run.config.update(config)
-
 
     tokenizer = AutoTokenizer.from_pretrained(config["transformers_checkpoint"])
     id2label = {i: label for i, label in enumerate(config["marks"]+"O")}
@@ -260,26 +248,14 @@ def go(config):
     random_samples, stats = preprocessor.preprocess(list_file_names)
     logger.info("Preprocessing is done")
 
-    logger.info(f"Uploading a sample file from {config['preprocess']['output_path']} to Weights & Biases")
-
-    artifact = wandb.Artifact(
-        "sample_raw_data.txt",
-        type="raw data",
-        description="A sample raw data file which represent one book",
-    )
-    artifact.add_file(os.path.join(config['download']['output_path'], "01_أحكام القرآن لابن العربي.txt"))
-    # artifact.add_file(os.path.join(config['preprocess']['output_path'], "01_أحكام القرآن لابن العربي.txt"))
-
-    run.log_artifact(artifact)
-    sample_table = wandb.Table(data=random_samples, columns=
-                        ["Book", "Original", "Reconstructed"])
+    sample_table = wandb.Table(data=random_samples, columns=["Book", "Original", "Reconstructed"])
     run.log({"Sample Data": sample_table})
+
     # create another table for label statistics
-    stats_table = wandb.Table(data=stats, columns=
-                        ["Book", 
-                        *[f"count({id2label[key]})" for key in sorted(id2label.keys())], 
-                        *[id2label[key] for key in sorted(id2label.keys())]
-                        ])
+    stats_table = wandb.Table(data=stats, columns=["Book",
+                                                   *[f"count({id2label[key]})" for key in sorted(id2label.keys())],
+                                                   *[id2label[key] for key in sorted(id2label.keys())]
+                                                    ])
     run.log({"Statistics": stats_table})
 
 
@@ -299,7 +275,6 @@ def calculate_percentage(counter):
 
     percentage_dict = {key: count / total_counts * 100 for key, count in counter.items()}
     return percentage_dict
-
 
 if __name__ == "__main__":
     pass
