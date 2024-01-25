@@ -56,8 +56,8 @@ def go(config):
     # extra_marks = string.punctuation.translate(str.maketrans("", "", config["marks"]))
 
     # replace each mark in the inspection list by the corresponding mark in the replacement_list
-    inspection_list = ["'", ',', ';', '«', '»', '“', '﴾', '﴿'] # TODO arabic dot
-    replacement_list = ["", '،', '؛', '"', '"', '"', '"', '"']
+    inspection_list = [',', ';', "."]
+    replacement_list = ['،', '؛', "۔"]
     mapping_marks = {k:v for k, v in zip(inspection_list, replacement_list)}
 
     list_file_names = [file_name.split("/")[-1] for file_name in glob.glob(config["clean"]["input_path"] + "/*.txt")[:10]]

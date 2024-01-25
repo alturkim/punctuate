@@ -62,8 +62,8 @@ def go(config: DictConfig):
             len_stats["max_length"],
             len_stats["avg_length"],
             sample_count,
-            *[split_count.get(key, 0) for key in sorted(id2label.keys())], 
-            *[f"{split_perc.get(key, 0):.4f}" for key in sorted(id2label.keys())]
+            *[f"{split_perc.get(key, 0):.4f}" for key in sorted(id2label.keys())],
+            *[split_count.get(key, 0) for key in sorted(id2label.keys())]
         ]
         stats.append(split_stat)
     logger.info("Splitting is done")
@@ -72,7 +72,7 @@ def go(config: DictConfig):
                                                    "Max Token Count",
                                                    "Avg Token Count",
                                                    "Sample Count",
-                                                   *[f"count({id2label[key]})" for key in sorted(id2label.keys())],
-                                                   *[f"perc({id2label[key]})" for key in sorted(id2label.keys())]
+                                                   *[f"perc({id2label[key]})" for key in sorted(id2label.keys())],
+                                                   *[f"count({id2label[key]})" for key in sorted(id2label.keys())]
                                                     ])
     run.log({"Split Statistics": stats_table})

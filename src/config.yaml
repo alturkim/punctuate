@@ -30,13 +30,12 @@ train:
 
 chunk_size: 512
 tokens_max_len: 512
-marks: "؟،؛:\"۔"
+marks: "؟،؛:۔"
 mark2name:
   ؛: "SEMICOLON"
   ،: "COMMA"
   ؟: "QMARK"
   ":": "COLON"
-  "\"": "QOUTE"
   "۔": "PERIOD"
   O: "NO_PUNCT"
 

@@ -194,8 +194,7 @@ class Preprocessor:
                 org_text = []
                 # divide the files by sentences ending in full stop
                 for line in lines:
-                    # results += [l.strip()+".\n" for l in line.strip().split(".") if len(l.strip())>0]
-                    org_text += [l.strip()+"۔\n" for l in line.strip().split(".") 
+                    org_text += [l.strip()+"۔\n" for l in line.strip().split("۔") 
                                 if len(self._remove_punc([l.strip()])[0])>0]
 
                 # tokenize
