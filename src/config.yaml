@@ -17,7 +17,7 @@ split:
   input_path: data/processed
   output_path: data/split
 train:
-  input_path: data/processed
+  input_path: data/split
   debug: false
   batch_size: 128
   num_train_epochs: 80

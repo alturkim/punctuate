@@ -67,9 +67,10 @@ def save_checkpoint(state: dict, is_best: bool, checkpoint_dir: str):
 
 def count_labels(labels:list[list[int]]):
     # Flatten the list of lists into a single list
-    flattened_list = [item for sublist in labels for item in sublist]
+    flattened_list = sum(labels, []) # [item for sublist in labels for item in sublist]
     # Use Counter to count the occurrences of each unique label
     counts = Counter(flattened_list)
+    del counts[-100]
     return counts
 
 def calculate_percentage(counter: Counter):

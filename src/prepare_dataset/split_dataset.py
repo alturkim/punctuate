@@ -48,8 +48,8 @@ def go(config: DictConfig):
         split.save_to_disk(os.path.join(config["split"]["output_path"], name))
 
         # generate label stats for each split
-        split_count = count_labels(split["labels"])
-        split_perc = calculate_percentage(split_count)
+        split_label_count = count_labels(split["labels"])
+        split_label_perc = calculate_percentage(split_label_count)
 
         # generate token stat for each split
         len_stats = get_token_stats(split["input_ids"])
@@ -62,8 +62,8 @@ def go(config: DictConfig):
             len_stats["max_length"],
             len_stats["avg_length"],
             sample_count,
-            *[f"{split_perc.get(key, 0):.4f}" for key in sorted(id2label.keys())],
-            *[split_count.get(key, 0) for key in sorted(id2label.keys())]
+            *[f"{split_label_perc.get(key, 0):.4f}" for key in sorted(id2label.keys())],
+            *[split_label_count.get(key, 0) for key in sorted(id2label.keys())]
         ]
         stats.append(split_stat)
     logger.info("Splitting is done")
