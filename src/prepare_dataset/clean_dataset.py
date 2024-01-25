@@ -56,7 +56,7 @@ def go(config):
     # extra_marks = string.punctuation.translate(str.maketrans("", "", config["marks"]))
 
     # replace each mark in the inspection list by the corresponding mark in the replacement_list
-    inspection_list = ["'", ',', ';', '«', '»', '“', '﴾', '﴿']
+    inspection_list = ["'", ',', ';', '«', '»', '“', '﴾', '﴿'] # TODO arabic dot
     replacement_list = ["", '،', '؛', '"', '"', '"', '"', '"']
     mapping_marks = {k:v for k, v in zip(inspection_list, replacement_list)}
 

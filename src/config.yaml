@@ -13,11 +13,21 @@ clean:
 preprocess:
   input_path: data/clean
   output_path: data/processed
+split:
+  input_path: data/processed
+  output_path: data/split
+train:
+  input_path: data/processed
+  debug: false
+  batch_size: 128
+  num_train_epochs: 80
+  lr: 2e-5
+  checkpoint_dir: "output"
+  model_class: "LargeModel"
+  embed_size: 768
+  log_freq: 100
+  load_checkpoint: false
 
-debug: false
-transformers_checkpoint: "CAMeL-Lab/bert-base-arabic-camelbert-ca"
-embed_size: 768
-model_class: "LargeModel"
 chunk_size: 512
 tokens_max_len: 512
 marks: "؟،؛:\"۔"
@@ -29,13 +39,7 @@ mark2name:
   "\"": "QOUTE"
   "۔": "PERIOD"
   O: "NO_PUNCT"
-checkpoint_dir: "output"
-tb_summary_path: "runs/punct_pred_experiment_6"
-batch_size: 128
-num_train_epochs: 80
-lr: 2e-5
-log_freq: 100
-text_chunk_size: 500
+
+transformers_checkpoint: "CAMeL-Lab/bert-base-arabic-camelbert-ca"
 processed_dataset_path: "data/CAMeL_Lab_bert_base_arabic_camelbert_ca"
-load_checkpoint: false
-load_processed_dataset: true
+

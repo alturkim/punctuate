@@ -1,13 +1,17 @@
 import os
 import hydra
 from omegaconf import DictConfig
-from prepare_dataset import download_dataset, clean_dataset, preprocess_dataset
+from prepare_dataset import download_dataset, clean_dataset, preprocess_dataset, split_dataset
+from train import train
 
 _steps = [
     # "download",
     # "clean",
     "preprocess",
+    # "split",
     # "balance",
+    # "train",
+
 ]
 
 # This automatically reads in the configuration
@@ -33,6 +37,15 @@ def go(config: DictConfig):
 
     if "preprocess" in active_steps:
         preprocess_dataset.go(config)
+
+    if "eda" in active_steps:
+        perform_eda.go(config)
+    
+    if "split" in active_steps:
+        split_dataset.go(config)
+    
+    if "train" in active_steps:
+        train.go(config)
 
 if __name__ == "__main__":
     go()

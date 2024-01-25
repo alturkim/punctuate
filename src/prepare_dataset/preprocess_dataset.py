@@ -7,9 +7,7 @@ import logging
 import os
 import glob
 import wandb
-from itertools import chain
-from collections import Counter
-
+from utils import count_labels, calculate_percentage, get_id2label, get_label2id, get_token_stats
 logger = logging.getLogger(__name__)
 
 class Preprocessor:
@@ -220,10 +218,20 @@ class Preprocessor:
             ]
             book_count = count_labels(tokenized_inputs["labels"])
             book_perc = calculate_percentage(book_count)
+
+            # generate token stat for each book
+            len_stats = get_token_stats(tokenized_inputs["input_ids"])
+
+            sample_count = len(tokenized_inputs["input_ids"])
+
             book_stat = [
                 file,
-                *[book_count.get(key, 0) for key in sorted(self.id2label.keys())], 
-                *[f"{book_perc.get(key, 0):.1f}" for key in sorted(self.id2label.keys())]
+                len_stats["min_length"],
+                len_stats["max_length"],
+                len_stats["avg_length"],
+                sample_count,
+                *[f"{book_perc.get(key, 0):.4f}" for key in sorted(self.id2label.keys())],
+                *[book_count.get(key, 0) for key in sorted(self.id2label.keys())]
             ]
             random_samples.append(sample)
             stats.append(book_stat)
@@ -236,8 +244,8 @@ def go(config):
     run.config.update(config)
 
     tokenizer = AutoTokenizer.from_pretrained(config["transformers_checkpoint"])
-    id2label = {i: label for i, label in enumerate(config["marks"]+"O")}
-    label2id = {v: k for k, v in id2label.items()}
+    id2label = get_id2label(config)
+    label2id = get_label2id(config)
     
     preprocessor = Preprocessor(config, tokenizer, label2id, id2label)
 
@@ -253,28 +261,14 @@ def go(config):
 
     # create another table for label statistics
     stats_table = wandb.Table(data=stats, columns=["Book",
-                                                   *[f"count({id2label[key]})" for key in sorted(id2label.keys())],
-                                                   *[id2label[key] for key in sorted(id2label.keys())]
+                                                   "Min Token Count",
+                                                   "Max Token Count",
+                                                   "Avg Token Count",
+                                                   "Sample Count",
+                                                   *[f"perc({id2label[key]})" for key in sorted(id2label.keys())],
+                                                   *[f"count({id2label[key]})" for key in sorted(id2label.keys())]
                                                     ])
-    run.log({"Statistics": stats_table})
-
-
-def count_labels(labels:list[list[int]]):
-    # Flatten the list of lists into a single list
-    flattened_list = [item for sublist in labels for item in sublist]
-    # Use Counter to count the occurrences of each unique label
-    counts = Counter(flattened_list)
-    return counts
-
-def calculate_percentage(counter):
-    total_counts = sum(counter.values())
-    
-    if total_counts == 0:
-        # Avoid division by zero if the counter is empty
-        return dict.fromkeys(counter, 0.0)
-
-    percentage_dict = {key: count / total_counts * 100 for key, count in counter.items()}
-    return percentage_dict
+    run.log({"Book Statistics": stats_table})
 
 if __name__ == "__main__":
     pass
