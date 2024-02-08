@@ -18,15 +18,23 @@ split:
   output_path: data/split
 train:
   input_path: data/split
-  debug: false
+  debug: True
   batch_size: 128
   num_train_epochs: 80
   lr: 2e-5
+  dropout_rate: 0.1
   checkpoint_dir: "output"
-  model_class: "LargeModel"
+  model_class: "LSTMCLS"
   embed_size: 768
+  # index of O label, to be ignore by the multiclass hier cls
+  hier_ignore_index: 5
   log_freq: 100
   load_checkpoint: false
+  lstm_cls:
+    embed_size: 768
+    lstm_hidden: 512
+    linear_hidden: 512
+    lstm_layers: 1
 
 chunk_size: 512
 tokens_max_len: 512
