@@ -32,6 +32,7 @@ class LSTMClassifier(nn.Module):
             bidirectional=True)
 
         # Binary classification layer
+        # TODO add activation ReLU
         self.fc_binary = nn.Linear(2*self.lstm_hidden, self.linear_hidden) # multiplying by 2 since its a bilstm
         self.fc_binary_out = nn.Linear(self.linear_hidden, 1)
 
@@ -40,7 +41,7 @@ class LSTMClassifier(nn.Module):
         self.fc_multiclass_out = nn.Linear(self.linear_hidden, self.num_labels-1)
 
 
-    def forward(self, input_ids=None, attention_mask=None, labels=None):
+    def forward(self, input_ids=None, labels=None):
         # shape [batch_size, seq_len, embeddings_size]
         output = self.embeddings(input_ids)
         # shape [batch_size, seq_len, 2*lstm_hidden]
