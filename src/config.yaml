@@ -17,13 +17,15 @@ split:
   input_path: data/processed
   output_path: data/split
 train:
-  input_path: data/split
+  input_path: data/split_small
   debug: True
+  debug_samples: 1000
+  debug_num_train_epochs: 1
   batch_size: 40
   num_train_epochs: 80
   lr: 2e-5
   dropout_rate: 0.1
-  checkpoint_dir: "output"
+  checkpoint_dir: "checkpoints"
   model_class: "LSTMCLS"
   embed_size: 768
   # index of O label, to be ignore by the multiclass hier cls

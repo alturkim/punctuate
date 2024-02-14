@@ -41,13 +41,13 @@ def postprocess(predictions: torch.Tensor, labels: torch.Tensor):
     predictions = sum(predictions, [])
     return predictions, labels
 
-def process_logits(binary_logits: torch.Tensor, multiclass_logits: torch.Tensor, config:torch.Tensor):
+def process_logits(binary_logits: torch.Tensor, multiclass_logits: torch.Tensor, config):
     """the model generates two logits, one from each classifier, it maps those to
     one prediction tensor corresponding to the original labels."""
     no_punc_label = config["train"]["hier_ignore_index"]
-    binary_predictions = torch.argmax(binary_logits, dim=-1)
     multiclass_predictions = torch.argmax(multiclass_logits, dim=-1)
-    preds = torch.where(binary_predictions > 0, multiclass_predictions, no_punc_label)
+    binary_logits = torch.squeeze(torch.sigmoid(binary_logits), -1)
+    preds = torch.where(binary_logits > 0.5, multiclass_predictions, no_punc_label)
     return preds
 
 class Trainer:
@@ -87,7 +87,7 @@ class Trainer:
         if not self.config["train"]["debug"]:
             num_epochs = self.config["train"]["num_train_epochs"]
         else:
-            num_epochs = 5 
+            num_epochs = self.config["train"]["debug_num_train_epochs"] 
 
         # len(self.train_dataloader) is the number of minibatch in one epoch (data size / batch size)
         num_training_steps = num_epochs * len(self.train_dataloader)
@@ -111,7 +111,6 @@ class Trainer:
                 batch = {k: v.to(self.device) for k, v in batch.items()}
                 # forward passs
                 loss, binary_logits, multiclass_logits = self.model(**batch)
-
                 # backward pass
                 loss.backward()
 
@@ -183,6 +182,7 @@ class Trainer:
             avg_loss.update(loss.item())
             # predictions and labels are lists of integers
             predictions, labels = postprocess(predictions, labels)
+           
             for metric in self.metrics:
                 metric.add_batch(predictions=predictions, references=labels)
 
@@ -233,7 +233,7 @@ def get_dataloader(config, dataset, split):
         collate_fn = hf_collator
 
     if config["train"]["debug"]:
-        dataset[split] = dataset[split].select(list(range(2000)))
+        dataset[split] = dataset[split].select(list(range(config["train"]["debug_samples"])))
         logger.info("Training:- Debugging mode, using few samples...")
         
     dataloader = DataLoader(
