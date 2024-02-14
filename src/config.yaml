@@ -19,7 +19,7 @@ split:
 train:
   input_path: data/split
   debug: True
-  batch_size: 128
+  batch_size: 40
   num_train_epochs: 80
   lr: 2e-5
   dropout_rate: 0.1

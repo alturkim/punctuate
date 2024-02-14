@@ -11,14 +11,12 @@ from transformers import AdamW, get_scheduler, DataCollatorForTokenClassificatio
 import evaluate
 from torch.optim import AdamW
 from tqdm.auto import tqdm
-from pprint import pprint
 import os
 
 import wandb
 from models.baseModel import BaseModel
 from models.lstm_classifier import LSTMClassifier
 from models.largeModel import LargeModel
-from punctuate.src.models.lstm_classifier import BaselineLSTM
 from utils import save_checkpoint, RunningAverage, get_id2label, get_label2name
 from omegaconf import DictConfig
 torch.manual_seed(0)
@@ -75,21 +73,21 @@ class Trainer:
         self.model.to(self.device)
         logger.info(f"Training:- Model is now on {device}")
 
-    def train(self) -> None: # TODO add run as parameter
+    def train(self) -> None:
         log_freq = self.config["train"]["log_freq"]
+        # log gradients
+        wandb.watch(self.model, log_freq=log_freq)
         # running_loss is avg loss of a number of minibatch that equals to log_freq
         running_loss = RunningAverage()
         # training_loss is avg loss per epoch
         training_loss = RunningAverage()
-        # lists for wandb log and table
-        performance_stats = []
-        running_loss_lst = []
-
+        # wandb table
+        performance_stats_lst = []
 
         if not self.config["train"]["debug"]:
             num_epochs = self.config["train"]["num_train_epochs"]
         else:
-            num_epochs = 1
+            num_epochs = 5 
 
         # len(self.train_dataloader) is the number of minibatch in one epoch (data size / batch size)
         num_training_steps = num_epochs * len(self.train_dataloader)
@@ -126,9 +124,9 @@ class Trainer:
                 training_loss.update(loss.item())
 
                 # every log_freq mini-batches...
-                if i%log_freq == 0:
-                    # TODO maybe add an x axis for plotting using epoch * len(self.train_dataloader) + i
-                    running_loss_lst.append(running_loss.avg) 
+                if (i+1)%log_freq == 0:
+                    wandb.log({"step":epoch * len(self.train_dataloader) + i,
+                                "mini_batch_loss": running_loss.avg}) 
                     running_loss.reset()
 
 
@@ -140,23 +138,36 @@ class Trainer:
             best_val_loss = min(val_loss, best_val_loss)
             state = {'epoch': epoch+1,
                     'model_state_dict': self.model.state_dict(),
-                    'optimizer_state_dict': self.optimizer.state_dict()
+                    'optimizer_state_dict': self.optimizer.state_dict(),
+                    'val_loss': val_loss
                     }
 
             save_checkpoint(state, is_best, self.config["train"]["checkpoint_dir"])
-            performance_stats.append(epoch)
-            performance_stats.append(training_loss.avg)
-            performance_stats.append(val_loss.avg)
+            if is_best:
+                model_artifact = wandb.Artifact("best_checkpoint", "model_checkpoint")
+                model_artifact.add_file(os.path.join(
+                    self.config["train"]["checkpoint_dir"], 'best_checkpoint.pt'),
+                    name="best_model")
+                wandb.run.log_artifact(model_artifact)
+            perf_stat = []
+            perf_stat.append(epoch)
+            perf_stat.append(training_loss.avg)
+            perf_stat.append(val_loss)
 
-            # TODO upload model and checkpoint to wandb
             results:dict = self.compute_metrics()
+            wandb.log({"epoch": epoch, 
+                       "train_loss": training_loss.avg,
+                       "val_loss": val_loss,
+                        **results["f1"]})
             for mark in results["f1"].keys():
-                performance_stats.append(results["f1"][mark])
-        
-        performance_table = wandb.Table(data=performance_stats, 
+                perf_stat.append(results["f1"][mark])
+            performance_stats_lst.append(perf_stat)
+        # the table is not going to be logged until the end of training, above, there is frequent log
+        performance_table = wandb.Table(data=performance_stats_lst, 
                                         columns=["Epoch", "Training Loss", "Validation Loss",
-                                                *[f"F1{mark}" for mark in results["f1"].keys()]])
-        return performance_table, running_loss_lst
+                                                *[f"F1_{mark}" for mark in results["f1"].keys()]])
+        logger.info("Training:- Logging Performance Table to WandB ...")
+        wandb.log({"Performance Statistics": performance_table})
     
     def evaluate(self):
         avg_loss = RunningAverage()
@@ -183,42 +194,57 @@ class Trainer:
         all_labels = [l for l in range(len(self.id2label))]
         for metric in self.metrics:
             # metric.compute takes care of reseting the computation
-            metric_result:list[float] = metric.compute(average=None, labels=all_labels)[metric.name]
+            if metric.name == "precision":
+                metric_result:list[float] = metric.compute(average=None, labels=all_labels, zero_division=0)[metric.name]
+            else:
+                metric_result:list[float] = metric.compute(average=None, labels=all_labels)[metric.name]
+
+
             result[metric.name] = {self.label2name[self.id2label[i]]: v 
                                    for i, v in zip(all_labels, metric_result)}
         return result
 
-def get_dataloader(config, dataset, split, collator):   
-    if not config["train"]["debug"]:
-        dataset[split] = dataset[split].select(list(range(100)))
+def get_dataloader(config, dataset, split):
+    # data_collator will take care of padding sequences and labels
+    tokenizer = AutoTokenizer.from_pretrained(config["transformers_checkpoint"])
+    hf_collator = DataCollatorForTokenClassification(tokenizer=tokenizer, label_pad_token_id=-100)
+    
+    def lstm_collator(features):
+        input_ids_lengths = [len(features[i]["input_ids"]) for i in range(len(features))]
+        labels_lengths = [len(features[i]["labels"]) for i in range(len(features))]
+
+        batch = hf_collator.torch_call(features)
+        input_ids:torch.Tensor = batch["input_ids"]
+        labels:torch.Tensor = batch["labels"]
+        # packed_input_ids = torch.nn.utils.rnn.pack_padded_sequence(input_ids,
+        #     lengths= input_ids_lengths,
+        #     batch_first=True,
+        #     enforce_sorted=False) 
+        # packed_labels = torch.nn.utils.rnn.pack_padded_sequence(labels,
+        #     lengths=labels_lengths,
+        #     batch_first=True,
+        #     enforce_sorted=False)
+        
+        return {"input_ids": input_ids, "labels": labels}
+
+    if config["train"]["model_class"].find("LSTM") >= 0:
+        collate_fn = lstm_collator   
+    else:
+        collate_fn = hf_collator
+
+    if config["train"]["debug"]:
+        dataset[split] = dataset[split].select(list(range(2000)))
         logger.info("Training:- Debugging mode, using few samples...")
         
     dataloader = DataLoader(
                 dataset[split],
                 shuffle=True,
-                collate_fn=collator,
+                collate_fn=collate_fn,
                 batch_size=config["train"]["batch_size"]
             )
     return dataloader
     
-def lstm_collator(features):
-    input_ids_lengths = [len(lst) for lst in features["input_ids"]]
-    labels_lengths = [len(lst) for lst in features["labels"]]
-    tokenizer = AutoTokenizer.from_pretrained(config["transformers_checkpoint"])
-    collator = DataCollatorForTokenClassification(tokenizer=tokenizer, label_pad_token_id=-100)
 
-    batch = collator.torch_call(features)
-    input_ids = torch.tensor(batch["input_ids"])
-    labels = torch.tensor(batch["labels"])
-    packed_input_ids = torch.nn.utils.rnn.pack_padded_sequence(input_ids,
-        lengths= input_ids_lengths,
-        batch_first=True,
-        enforce_sorted=False) ## TODO check data type
-    packed_labels = torch.nn.utils.rnn.pack_padded_sequence(labels,
-        lengths=labels_lengths,
-        batch_first=True,
-        enforce_sorted=False) 
-    return {"input_ids": packed_input_ids, "labels": packed_labels}
 
 def go(config: DictConfig):
     """each split is a dict-like object containing these keys, the value of each is a list
@@ -244,14 +270,9 @@ def go(config: DictConfig):
     logger.info("Training:- Loading dataset is done.")
 
     logger.info("Training:- Creating Data Loaders...")
-    # data_collator will take care of padding sequences and labels
-    tokenizer = AutoTokenizer.from_pretrained(config["transformers_checkpoint"])
-    data_collator = DataCollatorForTokenClassification(tokenizer=tokenizer, label_pad_token_id=-100)
-    if config["train"]["model_class"].find("LSTM") >= 0:
-        data_collator = lstm_collator
 
-    train_dataloader = get_dataloader(config, punc_datasets, "train", data_collator)
-    eval_dataloader = get_dataloader(config, punc_datasets, "val", data_collator)
+    train_dataloader = get_dataloader(config, punc_datasets, "train")
+    eval_dataloader = get_dataloader(config, punc_datasets, "val")
 
     logger.info("Training:- Creating Data Loaders, done.")
 
@@ -282,10 +303,8 @@ def go(config: DictConfig):
     results = trainer.compute_metrics()
 
     logger.info("Training:- Calling trainer.train() ... ")
-    performance_table, running_loss_lst = trainer.train()
+    trainer.train()
     logger.info("Training:- Done ... ")
-    logger.info("Training:- Logging Performance Table to WandB ...")
-    run.log({"Performance Statistics": performance_table})
 
 
 if __name__ == "__main__":
