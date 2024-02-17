@@ -5,6 +5,7 @@ from dataclasses import dataclass, fields
 import os
 import typing
 import json
+from tqdm import tqdm
 
 class RunningAverage:
     def __init__(self):
@@ -66,10 +67,9 @@ def save_checkpoint(state: dict, is_best: bool, checkpoint_dir: str):
         torch.save(state, os.path.join(checkpoint_dir, 'best_checkpoint.pt'))
 
 def count_labels(labels:list[list[int]]):
-    # Flatten the list of lists into a single list
-    flattened_list = sum(labels, []) # [item for sublist in labels for item in sublist]
-    # Use Counter to count the occurrences of each unique label
-    counts = Counter(flattened_list)
+    counts = Counter()
+    for lst in labels:
+        counts.update(lst)
     del counts[-100]
     return counts
 

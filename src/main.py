@@ -9,9 +9,9 @@ _steps = [
     # "download",
     # "clean",
     # "preprocess",
-    # "split",
+    "split",
     # "balance",
-    "train",
+    # "train",
 
 ]
 
@@ -25,7 +25,7 @@ def go(config: DictConfig):
 
     # Steps to execute
     steps_par = config['main']['steps']
-    active_steps = _steps
+    active_steps = steps_par
 
     root_path = hydra.utils.get_original_cwd()
     data_root = os.path.join(root_path, "data")
