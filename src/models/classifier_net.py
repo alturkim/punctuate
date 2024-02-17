@@ -7,19 +7,24 @@ class ClassifierNet(nn.Module):
         super().__init__()
         self.hier_ignore_index = config["train"]["hier_ignore_index"] 
         self.num_labels = len(config["marks"]) + 1
-        self.linear_hidden = config["train"]["lstm_cls"]["linear_hidden"] 
+        self.bin_linear_hidden = config["train"]["classifier_net"]["bin_linear_hidden"]
+        self.mc_linear_hidden_1 = config["train"]["classifier_net"]["mc_linear_hidden_1"]
+        self.mc_linear_hidden_2 = config["train"]["classifier_net"]["mc_linear_hidden_2"]
+
+
         self.binary_criterion = nn.BCEWithLogitsLoss(reduction='none')
         self.multiclass_criterion = nn.CrossEntropyLoss(
             weight=torch.tensor([0.74, 0.023, 0.17, 0.042, 0.034]),
             ignore_index=-100) 
 
         # Binary classification layer
-        self.fc_binary = nn.Linear(cls_input_size, self.linear_hidden)
-        self.fc_binary_out = nn.Linear(self.linear_hidden, 1)
+        self.fc_binary = nn.Linear(cls_input_size, self.bin_linear_hidden)
+        self.fc_binary_out = nn.Linear(self.bin_linear_hidden, 1)
 
         # Multiclass classification layer
-        self.fc_multiclass = nn.Linear(cls_input_size, self.linear_hidden)
-        self.fc_multiclass_out = nn.Linear(self.linear_hidden, self.num_labels-1)
+        self.fc_multiclass_1 = nn.Linear(cls_input_size, self.mc_linear_hidden_1)
+        self.fc_multiclass_2 = nn.Linear(self.mc_linear_hidden_1, self.mc_linear_hidden_2)
+        self.fc_multiclass_out = nn.Linear(self.mc_linear_hidden_2, self.num_labels-1)
 
     def forward(self, output, labels):
         """output is a tensor with shape batch, seq_len, hidden_size,
@@ -31,7 +36,9 @@ class ClassifierNet(nn.Module):
         # shape [batch_size, seq_len, 1]
         binary_logits = self.fc_binary_out(output_binary)
 
-        output_multiclass = torch.tanh(self.fc_multiclass(output))
+        output_multiclass = torch.tanh(self.fc_multiclass_1(output))
+        output_multiclass = torch.tanh(self.fc_multiclass_2(output_multiclass))
+
         multiclass_logits = self.fc_multiclass_out(output_multiclass)
 
         # true for punc labels, false for no punc and -100 (pad token labels)        

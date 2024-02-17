@@ -22,7 +22,8 @@ train:
   input_path: data/split_small
   debug: True
   debug_samples: 100
-  debug_num_train_epochs: 2
+  debug_num_train_epochs: 10
+  debug_batch_size: 10
   batch_size: 40
   num_train_epochs: 80
   lr: 2e-5
@@ -37,8 +38,11 @@ train:
   lstm_cls:
     embed_size: 768
     lstm_hidden: 512
-    linear_hidden: 512
-    lstm_layers: 1
+    lstm_layers: 4
+  classifier_net:
+    bin_linear_hidden: 512
+    mc_linear_hidden_1: 512
+    mc_linear_hidden_2: 512
 
 chunk_size: 512
 tokens_max_len: 512
