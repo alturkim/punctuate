@@ -19,6 +19,7 @@ from models.lstm_classifier import LSTMClassifier
 from models.largeModel import LargeModel
 from utils import save_checkpoint, RunningAverage, get_id2label, get_label2name
 from omegaconf import DictConfig
+from pprint import pprint
 torch.manual_seed(0)
 logger = logging.getLogger(__name__)
 
@@ -42,7 +43,7 @@ def postprocess(predictions: torch.Tensor, labels: torch.Tensor):
     return predictions, labels
 
 def process_logits(binary_logits: torch.Tensor, multiclass_logits: torch.Tensor, config):
-    """the model generates two logits, one from each classifier, it maps those to
+    """the model generates two logits, one from each classifier,this maps those to
     one prediction tensor corresponding to the original labels."""
     no_punc_label = config["train"]["hier_ignore_index"]
     multiclass_predictions = torch.argmax(multiclass_logits, dim=-1)
@@ -154,6 +155,11 @@ class Trainer:
             perf_stat.append(val_loss)
 
             results:dict = self.compute_metrics()
+            pprint({"epoch": epoch, 
+                       "train_loss": training_loss.avg,
+                       "val_loss": val_loss,
+                        **results["f1"]})
+            
             wandb.log({"epoch": epoch, 
                        "train_loss": training_loss.avg,
                        "val_loss": val_loss,
@@ -179,6 +185,7 @@ class Trainer:
                 loss, binary_logits, multiclass_logits = self.model(**batch)
             predictions = process_logits(binary_logits, multiclass_logits, self.config)
             labels = batch["labels"]
+            assert labels.shape[1] == predictions.shape[1], "check pred in evaluation loop"
             avg_loss.update(loss.item())
             # predictions and labels are lists of integers
             predictions, labels = postprocess(predictions, labels)
@@ -208,7 +215,7 @@ def get_dataloader(config, dataset, split):
     # data_collator will take care of padding sequences and labels
     tokenizer = AutoTokenizer.from_pretrained(config["transformers_checkpoint"])
     hf_collator = DataCollatorForTokenClassification(tokenizer=tokenizer, label_pad_token_id=-100)
-    
+    batch_size = config["train"]["batch_size"]
     def lstm_collator(features):
         input_ids_lengths = [len(features[i]["input_ids"]) for i in range(len(features))]
         labels_lengths = [len(features[i]["labels"]) for i in range(len(features))]
@@ -235,12 +242,12 @@ def get_dataloader(config, dataset, split):
     if config["train"]["debug"]:
         dataset[split] = dataset[split].select(list(range(config["train"]["debug_samples"])))
         logger.info("Training:- Debugging mode, using few samples...")
-        
+        batch_size = config["train"]["debug_batch_size"]
     dataloader = DataLoader(
                 dataset[split],
                 shuffle=True,
                 collate_fn=collate_fn,
-                batch_size=config["train"]["batch_size"]
+                batch_size=batch_size
             )
     return dataloader
     
@@ -252,7 +259,10 @@ def go(config: DictConfig):
     data are truncated to be of size config tokenz_max_len, and special tokens were added.
     """
     run = wandb.init(job_type="training")
-    run.config.update(config)
+    config_log = config.copy()
+    del config_log.marks
+    del config_log.mark2name
+    run.config.update(config_log)
 
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     logger.info("Training:- Running on: " + str(device))
@@ -301,7 +311,7 @@ def go(config: DictConfig):
     logger.info("Training:- Evaluating the model BEFORE training ... ")
     trainer.evaluate()
     results = trainer.compute_metrics()
-
+    pprint(results)
     logger.info("Training:- Calling trainer.train() ... ")
     trainer.train()
     logger.info("Training:- Done ... ")

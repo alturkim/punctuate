@@ -28,10 +28,10 @@ class LSTMClassifier(nn.Module):
         self.classifier_net = ClassifierNet(2*self.lstm_hidden, self.config)
 
     def forward(self, input_ids=None, labels=None):
-        # labels = labels.data
         # shape [batch_size, seq_len, embeddings_size]
         output = self.embeddings(input_ids)
         # shape [batch_size, seq_len, 2*lstm_hidden]
-        output, _ = self.bilstm(output) # mask your input here or do you
+        output, _ = self.bilstm(output)
         loss, binary_logits, multiclass_logits = self.classifier_net(output, labels)
+        assert multiclass_logits.shape[1] == labels.shape[1]
         return loss, binary_logits, multiclass_logits
