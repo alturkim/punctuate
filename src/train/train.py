@@ -243,6 +243,12 @@ def get_dataloader(config, dataset, split):
         dataset[split] = dataset[split].select(list(range(config["train"]["debug_samples"])))
         logger.info("Training:- Debugging mode, using few samples...")
         batch_size = config["train"]["debug_batch_size"]
+    
+    if split == "val_on_train":
+        print("using part of train for val,, debugging")
+        dataset[split] = dataset["train"].select(list(range(5000)))
+        logger.info("Training:- Debugging mode, using few samples...")
+
     dataloader = DataLoader(
                 dataset[split],
                 shuffle=True,
