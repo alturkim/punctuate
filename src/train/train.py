@@ -42,14 +42,6 @@ def postprocess(predictions: torch.Tensor, labels: torch.Tensor):
     predictions = sum(predictions, [])
     return predictions, labels
 
-def process_logits(binary_logits: torch.Tensor, multiclass_logits: torch.Tensor, config):
-    """the model generates two logits, one from each classifier,this maps those to
-    one prediction tensor corresponding to the original labels."""
-    no_punc_label = config["train"]["hier_ignore_index"]
-    multiclass_predictions = torch.argmax(multiclass_logits, dim=-1)
-    binary_logits = torch.squeeze(torch.sigmoid(binary_logits), -1)
-    preds = torch.where(binary_logits > 0.5, multiclass_predictions, no_punc_label)
-    return preds
 
 class Trainer:
     def __init__(self, 
@@ -111,7 +103,7 @@ class Trainer:
             for i, batch in enumerate(self.train_dataloader):
                 batch = {k: v.to(self.device) for k, v in batch.items()}
                 # forward passs
-                loss, binary_logits, multiclass_logits = self.model(**batch)
+                loss, logits = self.model(**batch)
                 # backward pass
                 loss.backward()
 
@@ -182,8 +174,8 @@ class Trainer:
         for batch in self.eval_dataloader:
             batch = {k: v.to(self.device) for k, v in batch.items()}
             with torch.no_grad():
-                loss, binary_logits, multiclass_logits = self.model(**batch)
-            predictions = process_logits(binary_logits, multiclass_logits, self.config)
+                loss, logits = self.model(**batch)
+            predictions = torch.argmax(logits, dim=-1)
             labels = batch["labels"]
             assert labels.shape[1] == predictions.shape[1], "check pred in evaluation loop"
             avg_loss.update(loss.item())
@@ -297,7 +289,7 @@ def go(config: DictConfig):
         model = LargeModel(config)
     elif config["train"]["model_class"] == "LSTMCLS":
         model = LSTMClassifier(config)
-    elif config["train"]["model_class"] == "BERT":
+    else:
         model = BERTFinetune(config)
     logger.info("Training:- Model creation is done.")
     
