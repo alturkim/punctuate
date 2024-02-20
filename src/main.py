@@ -2,7 +2,7 @@ import os
 import hydra
 from omegaconf import DictConfig
 from prepare_dataset import download_dataset, clean_dataset, preprocess_dataset, split_dataset
-from train import train
+from train import train as train
 import os
 os.environ['TRANSFORMERS_NO_ADVISORY_WARNINGS'] = 'true'
 _steps = [
