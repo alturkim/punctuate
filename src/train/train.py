@@ -14,7 +14,7 @@ from tqdm.auto import tqdm
 import os
 
 import wandb
-from models.baseModel import BaseModel
+from models.bert_finetune import BERTFinetune
 from models.lstm_classifier import LSTMClassifier
 from models.largeModel import LargeModel
 from utils import save_checkpoint, RunningAverage, get_id2label, get_label2name
@@ -297,8 +297,8 @@ def go(config: DictConfig):
         model = LargeModel(config)
     elif config["train"]["model_class"] == "LSTMCLS":
         model = LSTMClassifier(config)
-    else:
-        model = BaseModel(config)
+    elif config["train"]["model_class"] == "BERT":
+        model = BERTFinetune(config)
     logger.info("Training:- Model creation is done.")
     
     # load best checkpoint
