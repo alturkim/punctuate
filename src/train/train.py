@@ -16,7 +16,7 @@ import os
 import wandb
 from models.bert_finetune import BERTFinetune
 from models.lstm_classifier import LSTMClassifier
-from models.largeModel import LargeModel
+from models.lora_finetune import get_lora_model
 from utils import save_checkpoint, RunningAverage, get_id2label, get_label2name
 from omegaconf import DictConfig
 from pprint import pprint
@@ -285,8 +285,8 @@ def go(config: DictConfig):
     logger.info("Training:- Creating Data Loaders, done.")
 
     logger.info(f"Training:- Creating a {config['train']['model_class']} model...")
-    if config["train"]["model_class"] == "LargeModel":
-        model = LargeModel(config)
+    if config["train"]["model_class"] == "lora":
+        model = get_lora_model(config)
     elif config["train"]["model_class"] == "LSTMCLS":
         model = LSTMClassifier(config)
     else:
